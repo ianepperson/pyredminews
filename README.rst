@@ -107,10 +107,7 @@ returns a Project object.
 ::
 
    >>>project = demo.getProject('demoproject')
-   http://demo.redmine.org/projects/demoproject.xml
    >>> 
-
-(that url cruft is debugging info.  Please excuse my mess - it's only at version 0.1!)
 
 Now with that shiny new project object, you can take a look at the data available:
 
@@ -120,8 +117,6 @@ Now with that shiny new project object, you can take a look at the data availabl
   u'demoproject'
   >>> project.number
   u'9042'
-  >>> project.data
-  {u'name': u'New Demo Project', u'trackers': u'\n    ', u'created_on': u'Wed Jan 20 20:58:38 -0800 2010', u'updated_on': u'Wed Jan 20 20:58:38 -0800 2010', u'identifier': u'demoproject', u'id': u'9042', u'custom_fields': u'\n    '}
   >>> 
 
 
@@ -132,8 +127,7 @@ You can use the project object to create a new issue for that project:
 
 ::
 
-   >>> issue = project.newIssue("Test from Python", "That rabbit is dynamite!")
-   http://demo.redmine.org/issues.xml
+   >>> issue = project.newIssue(subject="Test from Python", description="That rabbit is dynamite!")
    >>> issue['id']
    u'35178'
    >>> issue['created_on']
@@ -151,19 +145,21 @@ You can view any issue by its ID:
 
 ::
 
-   >>> demo.getIssue(35178)
-   http://demo.redmine.org/issues/35178.xml
-   {u'description': u'That rabbit is dynamite!', u'relations': u'\n  ', u'start_date': u'2010-10-20', u'created_on': u'Wed Oct 20 22:50:36 -0700 2010', u'custom_fields': u'\n    ', u'spent_hours': u'0.0', u'updated_on': u'Wed Oct 20 23:29:56 -0700 2010', u'id': u'35178', u'done_ratio': u'0', u'subject': u'Test from Python'}
-   >>> 
+   >>> issue = demo.getIssue(35178)
+   >>> issue.status
+   {'id': '1', 'name': 'New'}
+   >>> issue.subject
+   'Count to five'
 
-Like the newIssue command above, it's returning a dictionary of (almost) all of the issue data.  
+Like the newIssue command above, it's returning an object with (almost) all of the issue data.  
 Note that this command is not running from the Project object but from the Redmine object.
 
 Change an Issue's Status
 ++++++++++++++++++++++++
 
-You can move an issue through the workflow as well.  Unfortunately, the Redmine REST API will 
-only allow setting a status by the status ID and provides no mechanism to discover what status ID's are available.  
+You can move an issue through the workflow as well.  Unfortunately, the Redmine 1.1 REST API will 
+only allow setting a status by the status ID and provides no mechanism to discover what status ID's are available.
+(This has changed in later versions of Redmine.) 
 By default, the library uses the status ID for Resolved and Closed from a default Redmine installation, 
 but if you've changed them in the Administration page, you'll have to change these each time as well.
 
