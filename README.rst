@@ -14,6 +14,8 @@ This library was originally published at http://code.google.com/p/pyredminews/
 How to use it
 -------------
 
+"Enable REST web service" must be checked in the Redmine administration panel for this library to function.
+
 The library, like most good Python libraries, is self documenting.  In the console, import the library then type ''help(redmine)'' 
 for all the details.
 
@@ -31,11 +33,11 @@ folder where the redmine.py resides.)
    Type "help", "copyright", "credits" or "license" for more information.
    >>> 
 
-Now, import redmine
+Now, import the Redmine class
 
 ::
 
-   >>> import redmine
+   >>> from redmine import Redmine
    >>>
 
 View the documentation
@@ -43,19 +45,13 @@ View the documentation
 
 ::
 
-   >>> help(redmine)
-   Help on module redmine:  
-   NAME
-       redmine
-   FILE
-       /redmine.py
-   CLASSES
-       Redmine    
-    class Redmine
-     |  Class to interoperate with a Redmine installation using the REST web services.
-     |  instance = Redmine(url, [key=strKey], [username=strName, password=strPass] )
-     |  
-   ...
+   >>> help(Redmine)
+   Help on class Redmine in module redmine.redmine:
+   class Redmine
+    |  Class to interoperate with a Redmine installation using the REST web services.
+    |  instance = Redmine(url, [key=strKey], [username=strName, password=strPass] )
+    |  
+    |  url is the base url of the Redmine install ( http://my.server/redmine )
    (type q to quit)
 
 etc.
@@ -75,7 +71,7 @@ Make an instance that represents the server you want to connect to.
 
 ::
 
-   >>> demo_anon = redmine.Redmine('http://demo.redmine.org')
+   >>> demo_anon = Redmine('http://demo.redmine.org')
    >>>
 
 
@@ -87,7 +83,7 @@ you should register an account and set up that access:
 
 ::
 
-   >>> demo = redmine.Redmine('http://demo.redmine.org', username='pyredmine', password='password')
+   >>> demo = Redmine('http://demo.redmine.org', username='pyredmine', password='password')
    >>>
 
 
@@ -97,7 +93,7 @@ That will reveal a key that can be used instead of a username/password.
 
 ::
 
-   >>> demo = redmine.Redmine('http://demo.redmine.org', key='701c0aec4330fb2f1db944f1808e1e987050c7f5')
+   >>> demo = Redmine('http://demo.redmine.org', key='701c0aec4330fb2f1db944f1808e1e987050c7f5')
    >>>
 
 
