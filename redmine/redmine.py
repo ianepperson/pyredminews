@@ -58,11 +58,17 @@ class _Project:
 		self.id = self.root.find('identifier').text
 		self.name = self.root.find('name').text
 		
-		for field in self.root.find('custom_fields'):
-			self.custom[ field.attrib['name'] ] = field.text
-			
-		for tracker in self.root.find('trackers'):
-			self.tracker[ tracker.attrib['name'] ] = tracker.attrib['id']
+		try:
+			for field in self.root.find('custom_fields'):
+				self.custom[ field.attrib['name'] ] = field.text
+		except TypeError:
+			pass
+		
+		try:
+			for tracker in self.root.find('trackers'):
+				self.tracker[ tracker.attrib['name'] ] = tracker.attrib['id']
+		except TypeError:
+			pass
 		
 	
 	def newIssue(self, **data ):
@@ -140,12 +146,17 @@ class _Issue:
 		except:
 			pass
 		
-		
-		for field in self.root.find('custom_fields'):
-			self.custom[ field.attrib['name'] ] = field.text
+		try:
+			for field in self.root.find('custom_fields'):
+				self.custom[ field.attrib['name'] ] = field.text
+		except:
+			pass
 
-		for field in self.root.find('relations'):
-			self.relations[ field.attrib['issue_id'] ] = field.attrib
+		try:
+			for field in self.root.find('relations'):
+				self.relations[ field.attrib['issue_id'] ] = field.attrib
+		except:
+			pass
 			
 	def resolve(self):
 		'''Resolve this issue'''
