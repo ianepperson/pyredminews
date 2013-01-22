@@ -9,7 +9,7 @@ Communications are performed via HTTP/S, freeing up the need for the Python scri
 
 This library was originally published at http://code.google.com/p/pyredminews/
 
-:: _Redmine: http://www.redmine.org/
+.. _Redmine: http://www.redmine.org/
 
 How to use it
 -------------
