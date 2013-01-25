@@ -138,8 +138,12 @@ class Project(Redmine_Item):
 	'''Object representing a Redmine project.
 	Returned by Redmine getProject calls.
 	'''
+	# data hints:
 	id = None
+	name = None
 	identifier = None
+	homepage = None
+	
 	_type = 'project'
 	_protected_attr = ['id',
 					   'created_on',
@@ -173,8 +177,17 @@ class Project_Control(Redmine_Item_Control):
 
 class Issue(Redmine_Item):
 	'''Object representing a Redmine issue.'''
+	# data hints:
 	id = None
 	subject = None
+	description = None
+	tracker = None
+	status = None
+	project = None
+	estimated_hours = None
+	done_ratio = None
+	assigned_to = None
+	
 	_type = 'issue'
 	_protected_attr = ['id',
 					   'created_on',
@@ -214,7 +227,7 @@ class Issue(Redmine_Item):
 					# If the changes field is not a dict or object, just use whatever value was given
 					self._changes[tag_id] = value
 			
-			# Remove the assigned_to from the changed data
+			# Remove the tag from the changed data
 			del self._changes[tag]
 			
 		
