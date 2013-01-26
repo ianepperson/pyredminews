@@ -453,6 +453,30 @@ class User(Redmine_Item):
 	def __str__(self):
 		return '<Redmine user #%s, "%s %s">' % (self.id, self.firstname, self.lastname)
 
+class News(Redmine_Item):
+	'''Object for representing a single Redmine user.'''
+	# data hints:
+	id = None
+	project = None
+	author = None
+	title = None
+	summary = None
+	description = None
+	created_on = None
+
+	_protected_attr = ['id',
+					   'created_on',
+					   ]
+
+	# How to communicate this info to/from the server
+	_query_container = 'news'
+	_query_path = '/news.json'
+	#_item_path = '/users/%s.json'
+	#_item_new_path = '/users.json'
+
+	def __str__(self):
+		return '<Redmine news #%s, %r>' % (self.id, self.title)
+
 
 
 class Redmine(object):
@@ -494,8 +518,8 @@ class Redmine(object):
 
 		if self.version >= 1.1:
 			self.users = Manage_Redmine_Items(self, User)
+			self.news = Manage_Redmine_Items(self, News)
 			#time entries
-			#news
 		
 		if self.version >= 1.3:
 			#issue relations
