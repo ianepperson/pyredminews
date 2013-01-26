@@ -27,12 +27,24 @@ class Redmine_Item(object):
 	'''Base class used for all items returned from Redmine.'''
 	# List out the attributes that aren't user-settable
 	_protected_attr = ['id']
-	_type = ''
+	_type = None
 	_changes = None
+
+	_query_path = ''
+	_query_container = ''
+	_item_path = ''
+	_item_new_path = ''
+	
+	@classmethod
+	def _get_type(cls):
+		'''Returns the object type string.
+		This string is required here and there to wrap and unwrap JSON data.'''
+		return cls.__name__.lower()
 	
 	def __init__(self, redmine, update_fn, json_data=None, data={}):
 		self._redmine = redmine
 		self._update_fn = update_fn
+		self._type = self._get_type()
 		
 		if json_data:
 			# Parse the data
@@ -41,16 +53,28 @@ class Redmine_Item(object):
 			except ValueError:
 				# If parsing failed, then raise the string which likely contains an error message instead of data
 				raise RedmineError(json_data)
-		if self._type:
-			try:
-				data = data[self._type]
-			except:
-				pass
+
+		# Check to see if there is a data wrapper
+		# Some replies will have {'issue':{<data>}} instead of just {<data>}
+		try:
+			data = data[self._type]
+		except KeyError:
+			pass
+
 		# Map all dictionary data to object attributes
 		self.__dict__.update(data)
 
+		# Map custom fields into our custom fields object
+		try:
+			self.custom_fields = Custom_Fields(self.custom_fields)
+		except AttributeError:
+			pass
+
 		# Set the changes dict to track all changes from here on out
 		self._changes = {}
+
+	def __repr__(self):
+		return '<Redmine %s #%s>' % (self.__class__.__name__, self.id)
 		
 	def __setattr__(self, name, value):
 		'''Set the attribute for any non-protected attribute.'''
@@ -65,10 +89,47 @@ class Redmine_Item(object):
 		# Set the instance value
 		self.__dict__[name] = value
 
+	def _check_custom_fields(self):
+		# Check for any changes in the custom fields, if mapped
+		if self._changes.has_key('custom_fields'):
+			# it's a new field - copied outside our scope
+			try:
+				# Try to grab changes from the object
+				self._changes['custom_field_values'] = self.custom_fields._get_all()
+			except AttributeError:
+				pass
+			else:
+				del(self._changes['custom_fields'])
+				return
+
+			try:
+				# Try and remap to the required dictionary
+				self._changes['custom_field_values'] = { f['id']:f.get('value','') for f in self._changes['custom_fields']}
+			except:
+				pass
+			else:
+				del(self._changes['custom_fields'])
+			return
+		
+		try:
+			if self.custom_fields.changed:
+				custom_changed = self.custom_fields
+			else:
+				return
+		except AttributeError:
+			return
+		
+		# We've got changes, map them to the required field
+		self._changes['custom_field_values'] = custom_changed._get_changes()
+		
+
 	def save(self, notes=None):
 		'''Save all changes (if any) back to Redmine.'''
+		self._check_custom_fields()
+				
 		if not self._changes:
 			return None
+				
 		try:
 			self._update_fn(self.id, **self._changes)
 		except:
@@ -77,8 +138,54 @@ class Redmine_Item(object):
 			# Successful save, woot! Now clear the changes dict
 			self._changes.clear()
 
+class Custom_Fields(object):
+	'''Handler to make custom fields easy to deal with.'''
+	changed = False
+	
+	def __init__(self, custom_field_data):
+		self._get_ref = {}
+		self._data = custom_field_data
+		
+		# Map the field data to easy-to-access dicts
+		for field in custom_field_data:
+			self._get_ref[field['id']] = field
+			try:
+				self._get_ref[field['name']] = field
+			except KeyError:
+				pass
 
-class Redmine_Item_Control(object):
+	def __repr__(self):
+		return '<Custom Fields: %s>' % self._data
+	
+	def _get_all(self):
+		'''Return all values.'''
+		return { f['id']:f.get('value','') for f in self._data }
+
+	def _get_changes(self):
+		'''Get all changed values.'''
+		result = { f['id']:f.get('value','') for f in self._data if f.get('changed', False)}
+		self._clear_changes
+		return result
+		
+	def _clear_changes(self):
+		'''Reset the changed flags'''
+		self.changed = False
+		for f in self._data:
+			del(f['changed'])
+	
+	def __getitem__(self, key):
+		# returned when self[key] is called
+		return self._get_ref[key].get('value', None)
+
+	def __setitem__(self, key, value):
+		# returned when self[key]=value
+		field = self._get_ref[key]
+		field['value'] = value
+		field['changed'] = True
+		self.changed = True
+	
+
+class Manage_Redmine_Items(object):
 	_object = Redmine_Item
 	
 	_query_path = ''
@@ -86,30 +193,59 @@ class Redmine_Item_Control(object):
 	_item_path = ''
 	_item_new_path = ''
 	
-	def __init__(self, redmine):
+	def __init__(self, redmine, item_obj=None):
 		self._redmine = redmine
+		
+		if item_obj:
+			self._object = item_obj
+		
+		# Grab data about the object
+		self._item_type = self._object._get_type()
+		self._item_name = self._object.__name__
+		
+		self._query_path = self._object._query_path
+		self._query_container = self._object._query_container
+		self._item_path = self._object._item_path
+		self._item_new_path = self._object._item_new_path
 	
 	def __getitem__(self, key):
 		# returned when self[key] is called
-		return self.get(key)
+		try:
+			return self.get(key)
+		except urllib2.HTTPError, e:
+			# Remap 404 errors to a proper dict error
+			if e.code == 404:
+				raise KeyError('%s %r not on server.' % (self._item_name, key))
+			else:
+				# All other errors just flow up
+				raise
+
+	def __iter__(self):
+		# Called when   for item in items:
+		return self.query()
 	
-	def _objectify(self, json_data):
+	def __call__(self, **options):
+		# when called as if it were a function, perform a query and return an iterable
+		# for item in items(status_id='closed'):
+		return self.query(**options)
+	
+	def _objectify(self, json_data=None, data={}):
 		'''Return an object derived from the given json data.'''
-		return self._object(self._redmine, self.update, json_data=json_data)
+		return self._object(self._redmine, self.update, json_data=json_data, data=data)
 	
 	def new(self, **dict):
 		'''Create a new item with the provided dict information.  Returns the new item.'''
 		if not self._item_new_path:
-			raise AttributeError('new is not available for %s' % self._type)
+			raise AttributeError('new is not available for %s' % self._item_name)
 		target = self._item_new_path
-		payload = json.dumps({self._object._type:dict})	
+		payload = json.dumps({self._item_type:dict})	
 		json_data = self._redmine.post(target, payload)
 		return self._objectify(json_data)
 	
 	def get(self, id):
 		'''Get a single item with the given ID'''
 		if not self._item_path:
-			raise AttributeError('get is not available for %s' % self._type)
+			raise AttributeError('get is not available for %s' % self._item_name)
 		target = self._item_path % id
 		json_data = self._redmine.get(target)
 		return self._objectify(json_data)
@@ -117,22 +253,59 @@ class Redmine_Item_Control(object):
 	def update(self, id, **dict):
 		'''Update a given item with the passed data.'''
 		if not self._item_path:
-			raise AttributeError('update is not available for %s' % self._type)
+			raise AttributeError('update is not available for %s' % self._item_name)
 		target = self._item_path % id
-		payload = json.dumps({self._object._type:dict})	
+		payload = json.dumps({self._item_type:dict})	
 		self._redmine.put(target, payload)
 		return None	
 		
 	def delete(self, id):
 		'''Delete a single item with the given ID'''
 		if not self._item_path:
-			raise AttributeError('delete is not available for %s' % self._type)
+			raise AttributeError('delete is not available for %s' % self._item_name)
 		target = self._item_path % id
 		self._redmine.delete(target)
 		return None
 	
-		
-
+	def query(self, **options):
+		'''Return an iterator for the given items.'''	
+		if not self._query_path:
+			raise AttributeError('query is not available for %s' % self._item_name)
+		last_item = 0
+		offset = 0
+		current_item = None
+		limit = options.get('limit', 25)
+		options['limit'] = limit
+		target = self._query_path
+		while True:
+			options['offset'] = offset
+			# go get the data with the given offset
+			json_data = self._redmine.get(target, options)
+			# Try and read the json
+			try:
+				data = json.loads(json_data)
+			except:
+				raise RedmineError(json_data)
+			
+			# The data is enclosed in the _query_container item
+			# That is, {'issues':{(issue1),(issue2)...}, 'total_count':##}
+			data_container = data[self._query_container]
+			for item_data in data_container:
+				yield(self._objectify(data=item_data))
+			
+			# If the container was empty, we requested past the end, just exit
+			if not data_container:
+				break
+			try:
+				if int(data['total_count']) > ( offset + len(data_container) ):
+					# moar data!
+					offset += limit
+				else:
+					break
+			except:
+				# If we don't even have a 'total_count', we're done.
+				break
+			
 
 class Project(Redmine_Item):
 	'''Object representing a Redmine project.
@@ -144,13 +317,18 @@ class Project(Redmine_Item):
 	identifier = None
 	homepage = None
 	
-	_type = 'project'
 	_protected_attr = ['id',
 					   'created_on',
 					   'updated_on',
 					   'identifier',
 					   ]
 	
+	# How to communicate this info to/from the server
+	_query_container = 'projects'
+	_query_path = '/projects.json'
+	_item_path = '/projects/%s.json'
+	_item_new_path = '/projects.json'
+
 	def __init__(self, redmine, *args, **kw_args):
 		# Override init to also set up sub-queries
 		# Call the base-class init
@@ -158,21 +336,13 @@ class Project(Redmine_Item):
 		
 		# Create our own issues controller,
 		# using __dict__ to bypass the changes__dict__
-		self.__dict__['issues'] = Issue_Control(redmine)
+		self.__dict__['issues'] = Manage_Redmine_Items(redmine, Issue)
 		# Bake this project ID into queries and new issue commands
 		self.issues._query_path = '/projects/%s/issues.json' % self.id
 		self.issues._item_new_path = self.issues._query_path
 			
 	def __repr__(self):
-		return '<Redmine project #%s "%s">' % (self.id, self.identifier)
-	
-class Project_Control(Redmine_Item_Control):
-	_object = Project
-	_query_container = 'projects'
-	_query_path = '/projects.json'
-	_item_path = '/projects/%s.json'
-	_item_new_path = '/projects.json'
-	
+		return '<Redmine project #%s "%s">' % (self.id, self.identifier)	
 
 
 class Issue(Redmine_Item):
@@ -188,16 +358,18 @@ class Issue(Redmine_Item):
 	done_ratio = None
 	assigned_to = None
 	
-	_type = 'issue'
 	_protected_attr = ['id',
 					   'created_on',
 					   'updated_on',
 					   'identifier',
 					   ]
 
-	def __repr__(self):
-		return '<Redmine issue #%s>' % self.id
-	
+	# How to communicate this info to/from the server
+	_query_container = 'issues'
+	_query_path = '/issues.json'
+	_item_path = '/issues/%s.json'
+	_item_new_path = '/issues.json'
+
 	def __str__(self):
 		return '<Redmine issue #%s, "%s">' % (self.id, self.subject)
 
@@ -253,13 +425,34 @@ class Issue(Redmine_Item):
 		'''Save all changes and close this issue'''
 		self.set_status( self._redmine.ISSUE_STATUS_ID_CLOSED, notes=notes )
 
-class Issue_Control(Redmine_Item_Control):
-	_object = Issue
-	_query_container = 'issues'
-	_query_path = '/issues.json'
-	_item_path = '/issues/%s.json'
-	_item_new_path = '/issues.json'
-	
+
+
+class User(Redmine_Item):
+	'''Object for representing a single Redmine user.'''
+	# data hints:
+	id = None
+	login = None
+	firstname = None
+	lastname = None
+	mail = None
+	auth_source_id = None
+	created_on = None
+	last_login = None
+
+	_protected_attr = ['id',
+					   'created_on',
+					   'last_login',
+					   ]
+
+	# How to communicate this info to/from the server
+	_query_container = 'users'
+	_query_path = '/users.json'
+	_item_path = '/users/%s.json'
+	_item_new_path = '/users.json'
+
+	def __str__(self):
+		return '<Redmine user #%s, "%s %s">' % (self.id, self.firstname, self.lastname)
+
 
 
 class Redmine(object):
@@ -280,50 +473,66 @@ class Redmine(object):
 	ISSUE_STATUS_ID_RESOLVED = 3
 	ISSUE_STATUS_ID_CLOSED = 5		
 		
-	def __init__(self, url, key=None, username=None, password=None, debug=False, readonlytest=False ):
+	def _set_version(self, version):
+		'''Set up this object based on the capabilities of the known versions of Redmine'''
+		# To evaluate the version capabilities, assume the best-case if no version is provided
+		self.version = version or 9999.0
+
+		if self.version < 1.0:
+			raise RedmineError('This library will only work with Redmine version 1.0 and higher.')
+		
+		## SECURITY AUGMENTATION		
+		# All versions support the key in the request (http://server/stuff.json?key=blah)
+		# But versions 1.1 and higher can put the key in a header field for better security.
+		# If no version was provided (0.0) then assume we should set the key with the request.
+		if version >= 1.1:
+			self.key_in_header = True  # it puts the key in the header or it gets the hose, but not for 1.0
+		
+		## ITEM MANAGERS
+		self.issues = Manage_Redmine_Items(self, Issue)
+		self.projects = Manage_Redmine_Items(self, Project)
+
+		if self.version >= 1.1:
+			self.users = Manage_Redmine_Items(self, User)
+			#time entries
+			#news
+		
+		if self.version >= 1.3:
+			#issue relations
+			#versions
+			#queries
+			#attachments
+			#issue statuses
+			#trackers
+			#issue categories
+			pass
+		
+		if self.version >= 1.4:
+			#project memberships
+			#roles
+			pass
+			
+		if self.version >= 2.1:
+			#groups
+			pass
+		
+		if self.version >= 2.2:
+			#wiki pages
+			#enumerations
+			pass
+				
+		
+	def __init__(self, url, key=None, username=None, password=None, debug=False, readonlytest=False, version=0.0 ):
 		self._url = url
 		self._key = key
 		self.debug = debug
 		self.readonlytest = readonlytest
-		self.projects = {}
-		
+		self._set_version(version)
 		if readonlytest:
 			print 'Redmine instance running in read only test mode.  No data will be written to the server.'
-		
-		self._opener = None
-		
-		#if not username:
-		#	username = key
-		#	self._key = None
-			
-		if not password:
-			password = '12345'  #the same combination on my luggage!  (required dummy value)
-		
-		if( username and password ):
-			#realm = 'Redmine API'
-			# create a password manager
-			password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-
-			password_mgr.add_password(None, url, username, password )
-			handler = urllib2.HTTPBasicAuthHandler( password_mgr )
-
-			# create "opener" (OpenerDirector instance)
-			self._opener = urllib2.build_opener( handler )
-
-			# set the opener when we fetch the URL
-			self._opener.open( url )
-
-			# Install the opener.
-			urllib2.install_opener( self._opener )
-			
-		else:
-			if not key:
-				pass
-			
-		# Create objects to manipulate different types
-		self.issues = Issue_Control(self)
-		self.projects = Project_Control(self)	
-		
+					
+		self._setup_authentication(username, password)
+								
 
 	# extend the request to handle PUT command
 	class PUT_Request(urllib2.Request):
@@ -335,15 +544,45 @@ class Redmine(object):
 		def get_method(self):
 			return 'DELETE'
 	
-	
+	def _setup_authentication(self, username, password):
+		'''Create the authentication object with the given credentials.'''
+
+		## BUG WORKAROUND
+		if self.version < 1.1:
+			# Version 1.0 had a bug when using the key parameter.
+			# Later versions have the opposite bug (a key in the username doesn't function)
+			if not username:
+				username = self._key
+				self._key = None
+		
+		if not username:
+			return
+		if not password:
+			password = '12345'  #the same combination on my luggage!  (required dummy value)
+			
+		#realm = 'Redmine API' - doesn't always work
+		# create a password manager
+		password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+
+		password_mgr.add_password(None, self._url, username, password )
+		handler = urllib2.HTTPBasicAuthHandler( password_mgr )
+
+		# create "opener" (OpenerDirector instance)
+		self._opener = urllib2.build_opener( handler )
+
+		# set the opener when we fetch the URL
+		self._opener.open( self._url )
+
+		# Install the opener.
+		urllib2.install_opener( self._opener )
 	
 	def open_raw(self, page, parms=None, payload=None, HTTPrequest=None, payload_type='application/json' ):
 		'''Opens a page from the server with optional XML.  Returns a response file-like object'''
 		if not parms:
 			parms={}
-			
-		# if we're using a key, add it to the parms array
-		if self._key:
+		
+		# if we're using a key, but it's not going in the header, add it to the parms array
+		if self._key and not self.key_in_header:
 			parms['key'] = self._key
 		
 		# encode any data
@@ -355,8 +594,12 @@ class Redmine(object):
 		fullUrl = self._url + '/' + page
 		
 		# register this url to be used with the opener
-		if self._opener:
+		# must be registered for each unique path
+		try:
 			self._opener.open( fullUrl )
+		except AttributeError:
+			# No authentication
+			pass
 			
 		#debug
 		if self.debug:
@@ -367,6 +610,11 @@ class Redmine(object):
 			request = HTTPrequest( fullUrl + urldata )
 		else:
 			request = urllib2.Request( fullUrl + urldata )
+			
+		# If the key is set and in the header, add it
+		if self._key and self.key_in_header:
+			request.add_header('X-Redmine-API-Key', self._key)
+			
 		# get the data and return XML object
 		if payload:
 			request.add_header('Content-Type', payload_type)
