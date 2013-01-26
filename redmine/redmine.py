@@ -30,6 +30,9 @@ class Redmine_Item(object):
 	_type = None
 	_changes = None
 
+	# These tags are remapped from tag to tag_id when creating or saving
+	_remap_to_id = []
+
 	_query_path = ''
 	_query_container = ''
 	_item_path = ''
@@ -121,6 +124,30 @@ class Redmine_Item(object):
 		
 		# We've got changes, map them to the required field
 		self._changes['custom_field_values'] = custom_changed._get_changes()
+
+	@classmethod
+	def _remap_tag_to_tag_id(cls, tag, new_data):
+		'''Remaps a given changed field from tag to tag_id.'''
+		try:
+			value = new_data[tag]
+		except:
+			# If tag wasn't changed, just return
+			return
+		
+		tag_id = tag + '_id'
+		try:
+			# Remap the ID change to the required field
+			new_data[tag_id] = value['id']
+		except:
+			try:
+				# Try and grab the id of the object
+				new_data[tag_id] = value.id
+			except AttributeError:
+				# If the changes field is not a dict or object, just use whatever value was given
+				new_data[tag_id] = value
+		
+		# Remove the tag from the changed data
+		del new_data[tag]
 		
 
 	def save(self, notes=None):
@@ -129,6 +156,9 @@ class Redmine_Item(object):
 				
 		if not self._changes:
 			return None
+				
+		for tag in self._remap_to_id:
+			self._remap_tag_to_tag_id(tag, self._changes)
 				
 		try:
 			self._update_fn(self.id, **self._changes)
@@ -237,6 +267,11 @@ class Manage_Redmine_Items(object):
 		'''Create a new item with the provided dict information.  Returns the new item.'''
 		if not self._item_new_path:
 			raise AttributeError('new is not available for %s' % self._item_name)
+
+		# Remap various tag to tag_id
+		for tag in self._object._remap_to_id:
+			self._object._remap_tag_to_tag_id(tag, dict)
+		
 		target = self._item_new_path
 		payload = json.dumps({self._item_type:dict})	
 		json_data = self._redmine.post(target, payload)
@@ -340,6 +375,11 @@ class Project(Redmine_Item):
 		# Bake this project ID into queries and new issue commands
 		self.issues._query_path = '/projects/%s/issues.json' % self.id
 		self.issues._item_new_path = self.issues._query_path
+		
+		# Same for time_entries
+		self.__dict__['time_entries'] = Manage_Redmine_Items(redmine, Time_Entry)
+		self.time_entries._query_path = '/projects/%s/time_entries.json' % self.id
+		self.time_entries._item_new_path = self.time_entries._query_path
 			
 	def __repr__(self):
 		return '<Redmine project #%s "%s">' % (self.id, self.identifier)	
@@ -364,11 +404,31 @@ class Issue(Redmine_Item):
 					   'identifier',
 					   ]
 
+	# these fields will map from tag to tag_id
+	# for instance, redmine needs the category_id=#, not the category as given
+	# the logic will attempt to grab category['id'] to set category_id 
+	_remap_to_id = ['assigned_to',
+				    'project',
+				    'category',
+				    'status',
+				    'parent_issue']
+
 	# How to communicate this info to/from the server
 	_query_container = 'issues'
 	_query_path = '/issues.json'
 	_item_path = '/issues/%s.json'
 	_item_new_path = '/issues.json'
+
+
+	def __init__(self, redmine, *args, **kw_args):
+		# Override init to also set up sub-queries
+		# Call the base-class init
+		super(Issue, self).__init__(redmine, *args, **kw_args)
+		
+		# Add for time_entries
+		self.__dict__['time_entries'] = Manage_Redmine_Items(redmine, Time_Entry)
+		self.time_entries._query_path = '/issues/%s/time_entries.json' % self.id
+		self.time_entries._item_new_path = self.time_entries._query_path
 
 	def __str__(self):
 		return '<Redmine issue #%s, "%s">' % (self.id, self.subject)
@@ -378,30 +438,6 @@ class Issue(Redmine_Item):
 		# Capture the notes if given
 		if notes:
 			self._changes['notes'] = notes
-		
-		# Check the changes dict for fields that need remapping
-		# Several fields need to go from field['id'] to field_id
-		for tag in ['assigned_to', 'project', 'category', 'status', 'parent_issue']:
-			try:
-				value = self._changes[tag]
-			except:
-				continue
-			
-			tag_id = tag + '_id'
-			try:
-				# Remap the ID change to the required field
-				self._changes[tag_id] = value['id']
-			except KeyError:
-				try:
-					# Try and grab the id of the object
-					self._changes[tag_id] = value.id
-				except AttributeError:
-					# If the changes field is not a dict or object, just use whatever value was given
-					self._changes[tag_id] = value
-			
-			# Remove the tag from the changed data
-			del self._changes[tag]
-			
 		
 		# Call the base-class save function
 		super(Issue, self).save()
@@ -453,8 +489,9 @@ class User(Redmine_Item):
 	def __str__(self):
 		return '<Redmine user #%s, "%s %s">' % (self.id, self.firstname, self.lastname)
 
+
 class News(Redmine_Item):
-	'''Object for representing a single Redmine user.'''
+	'''Object for representing a single Redmine news story.'''
 	# data hints:
 	id = None
 	project = None
@@ -471,12 +508,78 @@ class News(Redmine_Item):
 	# How to communicate this info to/from the server
 	_query_container = 'news'
 	_query_path = '/news.json'
-	#_item_path = '/users/%s.json'
-	#_item_new_path = '/users.json'
+	
+	# Maybe someday...
+	#_item_path = '/news/%s.json'
+	#_item_new_path = '/newss.json'
 
 	def __str__(self):
 		return '<Redmine news #%s, %r>' % (self.id, self.title)
 
+
+class Time_Entry(Redmine_Item):
+	'''Object for representing a single Redmine time entry.'''
+	# data hints:
+	id = None
+	project = None
+	issue = None
+	user = None
+	activity = None
+	hours = None
+	comments = None
+	spent_on = None
+	updated_on = None
+	created_on = None
+
+	_protected_attr = ['id',
+					   'created_on',
+					   'updated_on',
+					   ]
+
+	# these fields will map from tag to tag_id
+	# for instance, redmine needs the issue_id=#, not the issue as given
+	# the logic will attempt to grab issue.id or issue['id'] to set issue_id 
+	_remap_to_id = ['issue',
+				    'project',
+				    'activity',
+				    'user']
+	
+	# How to communicate this info to/from the server
+	_query_container = 'time_entries'
+	_query_path = '/time_entries.json'
+	_item_path = '/time_entries/%s.json'
+	_item_new_path = '/time_entries.json'
+
+	def __str__(self):
+		try:
+			try:
+				issue = ' issue #%s' % self.issue['id']
+			except:
+				issue = ''
+			try:
+				project = ' "%s"' % self.project['name']
+			except:
+				project = ''
+			map = (self.id, self.user['name'], project, issue, self.hours)
+			return '<Redmine Time Entry #%s: "%s" worked on%s%s for %s hours>' % map
+		       
+		except:
+			return self.__repr__()
+
+class Time_Entry_Activity(Redmine_Item):
+	'''Object for representing a single time entry activity type.
+	Used for creating Time_Entries.'''
+	# data hints:
+	id = None
+	name = None
+	is_default = None
+
+	# How to communicate this info to/from the server
+	_query_container = 'time_entry_activities'
+	_query_path = '/enumerations/time_entry_activities.json'
+
+	def __str__(self):
+		return '<Redmine Time Entry Activity #%s, "%s">' % (self.id, self.name)
 
 
 class Redmine(object):
@@ -519,7 +622,7 @@ class Redmine(object):
 		if self.version >= 1.1:
 			self.users = Manage_Redmine_Items(self, User)
 			self.news = Manage_Redmine_Items(self, News)
-			#time entries
+			self.time_entries = Manage_Redmine_Items(self, Time_Entry)
 		
 		if self.version >= 1.3:
 			#issue relations
@@ -541,6 +644,7 @@ class Redmine(object):
 			pass
 		
 		if self.version >= 2.2:
+			self.time_entry_activities = Manage_Redmine_Items(self, Time_Entry_Activity)
 			#wiki pages
 			#enumerations
 			pass
