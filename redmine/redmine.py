@@ -259,6 +259,21 @@ class Manage_Redmine_Items(object):
 		# for item in items(status_id='closed'):
 		return self.query(**options)
 	
+	def items(self, **options):
+		'''Return a query interator with (id, object) pairs.'''
+		iter = self.query(**options)
+		while True:
+			obj = iter.next()
+			yield (obj.id, obj)
+	
+	def query_to_dict(self, **options):
+		'''Run a query and return all results as a dictionary'''
+		return dict(self.items(**options))
+	
+	def query_to_list(self, **options):
+		'''Run a query and return all results as a list'''
+		return list(self.query(**options))
+	
 	def _objectify(self, json_data=None, data={}):
 		'''Return an object derived from the given json data.'''
 		return self._object(self._redmine, self.update, json_data=json_data, data=data)
