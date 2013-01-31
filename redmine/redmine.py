@@ -74,13 +74,22 @@ class Project(Redmine_Item):
 	id = None
 	name = None
 	identifier = None
+	parent = None
 	homepage = None
+	created_on = None
+	updated_on = None
 	
 	_protected_attr = ['id',
 					   'created_on',
 					   'updated_on',
 					   'identifier',
 					   ]
+
+	_field_type = {
+		'parent':'project', 
+		'assigned_to':'user',
+		'author':'user',
+		}
 	
 	# How to communicate this info to/from the server
 	_query_container = 'projects'
@@ -127,6 +136,13 @@ class Issue(Redmine_Item):
 					   'updated_on',
 					   'identifier',
 					   ]
+
+	_field_type = {
+		'parent':'issue',
+		'assigned_to':'user',
+		'author':'user',
+		}
+
 
 	# these fields will map from tag to tag_id
 	# for instance, redmine needs the category_id=#, not the category as given
@@ -228,6 +244,10 @@ class News(Redmine_Item):
 	_protected_attr = ['id',
 					   'created_on',
 					   ]
+	_field_type = {
+		'author':'user',
+		}
+
 
 	# How to communicate this info to/from the server
 	_query_container = 'news'
@@ -259,6 +279,7 @@ class Time_Entry(Redmine_Item):
 					   'created_on',
 					   'updated_on',
 					   ]
+
 
 	# these fields will map from tag to tag_id
 	# for instance, redmine needs the issue_id=#, not the issue as given
@@ -302,8 +323,6 @@ class Time_Entry_Activity(Redmine_Item):
 	_query_container = 'time_entry_activities'
 	_query_path = '/enumerations/time_entry_activities.json'
 
-	def __str__(self):
-		return '<Redmine Time Entry Activity #%s, "%s">' % (self.id, self.name)
 
 
 class Redmine(Redmine_WS):

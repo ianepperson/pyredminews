@@ -32,6 +32,9 @@ class Redmine_Item(object):
     # List out the attributes that aren't user-settable
     _protected_attr = ['id']
 
+    # Indicate which object should represent each field
+    _field_type = {}
+
     _type = None
     
     # Tracks changed attributes on this object.  __init__ sets it to {} to kick off tracking.
@@ -51,40 +54,51 @@ class Redmine_Item(object):
         This string is required here and there to wrap and unwrap JSON data.'''
         return cls.__name__.lower()
     
-    def __init__(self, redmine, update_fn, json_data=None, data={}):
-        self._redmine = redmine
-        self._update_fn = update_fn
-        self._type = self._get_type()
+    def __init__(self, redmine=None, data={}, type=None):        
+        if type:
+            self._type = type
+        else:
+            self._type = self._get_type()            
         
-        if json_data:
-            # Parse the data
-            try:
-                data = json.loads(json_data)
-            except ValueError:
-                # If parsing failed, then raise the string which likely contains an error message instead of data
-                raise RedmineError(json_data)
-
-        # Check to see if there is a data wrapper
-        # Some replies will have {'issue':{<data>}} instead of just {<data>}
+        self._redmine = redmine 
+        if data:       
+            self._update_data(data=data)
+        
+    def _update_data(self, data={}):
+        '''Update the data in this object.'''
+        
+        # Store the changes to prevent this update from effecting it
+        pending_changes = self._changes or {}
         try:
-            data = data[self._type]
-        except KeyError:
+            del self._changes
+        except:
             pass
-
-        # Map all dictionary data to object attributes
-        self.__dict__.update(data)
-
+        
         # Map custom fields into our custom fields object
         try:
-            self.custom_fields = Custom_Fields(self.custom_fields)
-        except AttributeError:
+            custom_field_data = data.pop('custom_fields')
+        except KeyError:
             pass
+        else:
+            self.custom_fields = Custom_Fields(custom_field_data)
+
+        # Map all other dictionary data to object attributes
+        for key, value in data.iteritems():
+            lookup_key = self._field_type.get(key, key)
+            # Check to see if there's cache data for this item.
+            # Will return an object if it's recognized as one.
+            self.__dict__[key] = self._redmine.check_cache(lookup_key, value)
+        #self.__dict__.update(data)
+
 
         # Set the changes dict to track all changes from here on out
-        self._changes = {}
+        self._changes = pending_changes
 
     def __repr__(self):
-        return '<Redmine %s #%s>' % (self._type, self.id)
+        try:
+            return '<Redmine %s #%s - %s>' % (self._type, self.id, self.name)
+        except:
+            return '<Redmine %s #%s>' % (self._type, self.id)
     
     def __int__(self):
         return self.id
@@ -166,7 +180,7 @@ class Redmine_Item(object):
         del new_data[tag]
         
 
-    def save(self, notes=None):
+    def save(self):
         '''Save all changes (if any) back to Redmine.'''
         self._check_custom_fields()
                 
@@ -177,12 +191,46 @@ class Redmine_Item(object):
             self._remap_tag_to_tag_id(tag, self._changes)
                 
         try:
-            self._update_fn(self.id, **self._changes)
+            self._update(self._changes)
         except:
             raise
         else:
             # Successful save, woot! Now clear the changes dict
             self._changes.clear()
+
+    def _update(self, dict):
+        if not self._item_path:
+            raise AttributeError('update is not available for %s' % self._type)
+        if not self.id:
+            # Should this be a new item?
+            raise RedmineError("Can't save this item, don't have an ID not sure where to put it.")
+        target = self._item_path % self.id
+        payload = json.dumps({self._type:dict})    
+        self._redmine.put(target, payload)
+
+
+    def refresh(self):
+        '''Refresh this item from data on the server.
+        Will save any unsaved data first.'''
+        
+        if not self._item_path:
+            raise AttributeError('refresh is not available for %s' % self._type)
+        if not self.id:
+            raise RedmineError('%s did not come from the Redmine server - no link.' % self._type)
+        
+        try:
+            self.save()
+        except:
+            pass
+        
+        # Mimic the Redmine_Item_Manager.get command
+        target = self._item_path % self.id
+        json_data = self._redmine.get(target)
+        data = self._redmine.unwrap_json(self._type, json_data)
+        self._update_data(data=data)
+
+    # do we need to muddy this up with a discard_changes?
+        
 
 class Custom_Fields(object):
     '''Handler to make custom fields easy to deal with.'''
@@ -275,7 +323,7 @@ class Redmine_Items_Manager(object):
         # for item in items(status_id='closed'):
         return self.query(**options)
     
-    def items(self, **options):
+    def iteritems(self, **options):
         '''Return a query interator with (id, object) pairs.'''
         iter = self.query(**options)
         while True:
@@ -284,7 +332,7 @@ class Redmine_Items_Manager(object):
     
     def query_to_dict(self, **options):
         '''Run a query and return all results as a dictionary'''
-        return dict(self.items(**options))
+        return dict(self.iteritems(**options))
     
     def query_to_list(self, **options):
         '''Run a query and return all results as a list'''
@@ -292,7 +340,22 @@ class Redmine_Items_Manager(object):
     
     def _objectify(self, json_data=None, data={}):
         '''Return an object derived from the given json data.'''
-        return self._object(self._redmine, self.update, json_data=json_data, data=data)
+        if json_data:
+            # Parse the data
+            try:
+                data = json.loads(json_data)
+            except ValueError:
+                # If parsing failed, then raise the string which likely contains an error message instead of data
+                raise RedmineError(json_data)            
+        # Check to see if there is a data wrapper
+        # Some replies will have {'issue':{<data>}} instead of just {<data>}
+        try:
+            data = data[self._item_type]
+        except KeyError:
+            pass
+        
+        return self._redmine.check_cache(self._item_type, data, self._object)
+        #return self._object(self._redmine, data=data)
     
     def new(self, **dict):
         '''Create a new item with the provided dict information.  Returns the new item.'''
@@ -306,7 +369,8 @@ class Redmine_Items_Manager(object):
         target = self._item_new_path
         payload = json.dumps({self._item_type:dict})    
         json_data = self._redmine.post(target, payload)
-        return self._objectify(json_data)
+        data = self._redmine.unwrap_json(self._item_type, json_data)
+        return self._objectify(data=data)
     
     def get(self, id):
         '''Get a single item with the given ID'''
@@ -314,7 +378,8 @@ class Redmine_Items_Manager(object):
             raise AttributeError('get is not available for %s' % self._item_name)
         target = self._item_path % id
         json_data = self._redmine.get(target)
-        return self._objectify(json_data)
+        data = self._redmine.unwrap_json(self._item_type, json_data)
+        return self._objectify(data=data)
     
     def update(self, id, **dict):
         '''Update a given item with the passed data.'''
@@ -380,12 +445,13 @@ class Redmine_WS(object):
         self._key = key
         self.debug = debug
         self.readonlytest = readonlytest
+        self.item_cache = {}
         self._set_version(version)
         if readonlytest:
             print 'Redmine instance running in read only test mode.  No data will be written to the server.'
                     
         self._setup_authentication(username, password)
-                                
+        self.find_all_item_classes()                   
 
     # extend the request to handle PUT command
     class PUT_Request(urllib2.Request):
@@ -509,6 +575,84 @@ class Redmine_WS(object):
         else:
             return self.open( page, HTTPrequest=self.DELETE_Request )
 
+
+    def add(self, item):
+        '''Add a Redmine_Item to this instance of Redmine.'''
+        raise NotImplemented('so sorry')
     
+    def unwrap_json(self, type, json_data):
+        '''Decodes a json string, and unwraps any 'type' it finds within.'''
+        # Parse the data
+        try:
+            data = json.loads(json_data)
+        except ValueError:
+            # If parsing failed, then raise the string which likely contains an error message instead of data
+            raise RedmineError(json_data)            
+        # Check to see if there is a data wrapper
+        # Some replies will have {'issue':{<data>}} instead of just {<data>}
+        try:
+            data = data[type]
+        except KeyError:
+            pass
+        return data
+        
     
+    def find_all_item_classes(self):
+        '''Finds and stores a reference to all Redmine_Item subclasses for later use.'''
+        # This is a circular import, but performed after the class is defined and an object is instatiated.
+        # We do this in order to get references to any objects definitions in the redmine.py file
+        # without requiring anyone editing the file to do anything other than create a class with the proper name.
+        import redmine as public_classes
+        
+        item_class = {}
+        for key, value in public_classes.__dict__.items():
+            try:
+                if issubclass(value, Redmine_Item):
+                    item_class[key.lower()] = value
+            except:
+                continue
+        self.item_class = item_class
+
+    def check_cache(self, type, data, obj=None):
+        '''Returns the updated cached version of the given dict'''
+        try:
+            id = data['id']
+        except:
+            # Not an identifiable item
+            #print 'don\'t know this item %r:%r' % (type, data)
+            return data
+        
+        # If obj was passed in, its type takes precedence
+        try:
+            type = obj._get_type()
+        except:
+            pass
+        
+        # Find the item in the cache, update and return if it's there
+        try:
+            hit = self.item_cache[type][id]
+        except KeyError:
+            pass
+        else:
+            hit._update_data(data)
+            #print 'cache hit for %s at %s' % (type, id)
+            return hit
+        
+        # Not there? Let's make us a new item
+        # If we weren't given the object ref, find the name in the global scope
+        if not obj:
+            # Default to Redmine_Item if it's not found
+            obj = self.item_class.get(type, Redmine_Item)
+        
+        new_item = obj(redmine=self, data=data, type=type)
+        
+        # Store it
+        self.item_cache.setdefault(type, {})[id] = new_item
+        #print 'set new %s at %s' % (type, id)
+            
+        return new_item
+            
+        
+        
+        
             
