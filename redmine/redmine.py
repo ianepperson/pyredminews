@@ -377,7 +377,15 @@ class Redmine(Redmine_WS):
 	ISSUE_STATUS_ID_NEW = 1
 	ISSUE_STATUS_ID_RESOLVED = 3
 	ISSUE_STATUS_ID_CLOSED = 5		
-		
+	
+	_current_user = None
+	
+	@property
+	def user(self):
+		if not self._current_user:
+			self._current_user = self.users['current']
+		return self._current_user
+	
 	def _set_version(self, version):
 		'''Set up this object based on the capabilities of the known versions of Redmine'''
 		# Store the version we are evaluating
