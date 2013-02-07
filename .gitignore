@@ -37,3 +37,7 @@ nosetests.xml
 test/jetson_new.py
 
 MANIFEST
+
+.DS_Store
+
+README
