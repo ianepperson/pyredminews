@@ -131,6 +131,30 @@ class Redmine_Item(object):
         # Set the instance value
         self.__dict__[name] = value
 
+    def __getitem__(self, key):
+        # Returned when self[key] is called
+        # Used to get any custom fields
+        try:
+            return self.custom_fields[key]
+        except AttributeError:
+            # If there is no custom_fields object, raise a key error exception
+            raise KeyError('Custom field %s does not exist.' % key)
+        except:
+            # Pass any other exceptions
+            raise
+        
+    def __setitem__(self, key, value):
+        # Called when self[key] = value
+        # Used to set any custom fields
+        try:
+            self.custom_fields[key] = value
+        except AttributeError:
+            # If there is not custom_fields object, raise a key error exception
+            raise KeyError('Custom field %s does not exist.  Must be created (if possible) in Redmine.' % key)
+        except:
+            # Pass any other exceptions
+            raise
+        
     def _check_custom_fields(self):
         # Check for any changes in the custom fields, if mapped
         # Custom fields need to be sent as "custom_field_values" as a dict referenced by the custom field ID.
