@@ -5,9 +5,9 @@ def readme():
         return f.read()
 
 setup(
-    name = "pyredminews",
+    name = "pyredmine",
     packages = ["redmine"],
-    version = "0.1",
+    version = "0.2",
     extras_require = {
         },
     description = "Python Redmine Web Services Library",
