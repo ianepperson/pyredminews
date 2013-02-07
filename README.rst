@@ -17,8 +17,6 @@ Installation
 PyPI
 ++++
 
-(future)
-
 The easiest way to install.  The module is available on the Python Package Index (PyPI) and is available for the 
 easy_install or pip commands.  easy_install is available by default on OSX, either command may be available for whatever
 flavor of Unix you are using, and must be installed on Windows.
