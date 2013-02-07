@@ -89,6 +89,8 @@ class Project(Redmine_Item):
 		'parent':'project', 
 		'assigned_to':'user',
 		'author':'user',
+		'created_on':'datetime',
+		'updated_on':'datetime',
 		}
 	
 	# How to communicate this info to/from the server
@@ -141,10 +143,12 @@ class Issue(Redmine_Item):
 		'parent':'issue',
 		'assigned_to':'user',
 		'author':'user',
+		'created_on':'datetime',
+		'updated_on':'datetime',
 		}
 
 
-	# these fields will map from tag to tag_id
+	# these fields will map from tag to tag_id when saving the issue.
 	# for instance, redmine needs the category_id=#, not the category as given
 	# the logic will attempt to grab category['id'] to set category_id 
 	_remap_to_id = ['assigned_to',
@@ -220,6 +224,11 @@ class User(Redmine_Item):
 					   'last_login',
 					   ]
 
+	_field_type = {
+		'created_on':'datetime',
+		'last_login':'datetime',
+		}
+	
 	# How to communicate this info to/from the server
 	_query_container = 'users'
 	_query_path = '/users.json'
@@ -246,6 +255,7 @@ class News(Redmine_Item):
 					   ]
 	_field_type = {
 		'author':'user',
+		'created_on':'datetime',
 		}
 
 
@@ -280,8 +290,14 @@ class Time_Entry(Redmine_Item):
 					   'updated_on',
 					   ]
 
+	_field_type = {
+		'activity':'time_entry_activity',
+		'created_on':'datetime',
+		'updated_on':'datetime',
+		'spent_on':'date',
+		}
 
-	# these fields will map from tag to tag_id
+	# these fields will map from tag to tag_id when saving the time entry.
 	# for instance, redmine needs the issue_id=#, not the issue as given
 	# the logic will attempt to grab issue.id or issue['id'] to set issue_id 
 	_remap_to_id = ['issue',

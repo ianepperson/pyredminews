@@ -19,6 +19,7 @@
 import urllib
 import urllib2
 import json
+from dateutil.parser import parse as datetime_parse
 
 class RedmineError(StandardError):
     pass
@@ -85,9 +86,14 @@ class Redmine_Item(object):
         # Map all other dictionary data to object attributes
         for key, value in data.iteritems():
             lookup_key = self._field_type.get(key, key)
-            # Check to see if there's cache data for this item.
-            # Will return an object if it's recognized as one.
-            self.__dict__[key] = self._redmine.check_cache(lookup_key, value)
+            
+            # if it's a datetime object, turn into proper DT object
+            if lookup_key == 'datetime' or lookup_key == 'date':
+                self.__dict__[key] = datetime_parse(value)
+            else:
+                # Check to see if there's cache data for this item.
+                # Will return an object if it's recognized as one.
+                self.__dict__[key] = self._redmine.check_cache(lookup_key, value)
         #self.__dict__.update(data)
 
 
@@ -124,6 +130,7 @@ class Redmine_Item(object):
 
     def _check_custom_fields(self):
         # Check for any changes in the custom fields, if mapped
+        # Custom fields need to be sent as "custom_field_values" as a dict referenced by the custom field ID.
         if self._changes.has_key('custom_fields'):
             # it's a new field - copied outside our scope
             try:
@@ -189,7 +196,29 @@ class Redmine_Item(object):
                 
         for tag in self._remap_to_id:
             self._remap_tag_to_tag_id(tag, self._changes)
+        
+        # Check for custom handlers for tags
+        for tag, type in self._field_type.items():
+            try:
+                raw_data = self._changes[tag]
+            except:
+                continue
+            
+            # Convert datetime type to a datetime string that Redmine expects
+            if type == 'datetime':
+                try:
+                    self._changes[tag] = raw_data.strftime('%Y-%m-%dT%H:%M:%S%z')
+                except AttributeError:
+                    continue
                 
+            # Convert date type to a date string that Redmine expects
+            if type == 'date':
+                try:
+                    self._changes[tag] = raw_data.strftime('%Y-%m-%d')
+                except AttributeError:
+                    continue
+                
+            
         try:
             self._update(self._changes)
         except:
