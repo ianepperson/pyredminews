@@ -132,6 +132,8 @@ class Issue(Redmine_Item):
 	estimated_hours = None
 	done_ratio = None
 	assigned_to = None
+	start_date = None
+	due_date = None
 	
 	_protected_attr = ['id',
 					   'created_on',
@@ -145,6 +147,8 @@ class Issue(Redmine_Item):
 		'author':'user',
 		'created_on':'datetime',
 		'updated_on':'datetime',
+		'start_date':'date',
+		'due_date':'date',
 		}
 
 
