@@ -473,3 +473,36 @@ Not every item supports every method.  For instance, no current version of Redmi
    AttributeError: new is not available for News
 
 
+Useful Examples
+---------------
+
+Give a User More Time
++++++++++++++++++++++
+
+Suppose Eric fell ill and was out for several days.  You need to crawl through the project called Parrot and 
+move any due date for issues assigned to Eric out by two more weeks.
+
+The dateutil library contains a handy method called reativedelta for calculating relative dates.
+
+.. code:: python
+
+  from redmine import Redmine
+  from dateutil.relativedelta import relativedelta
+  
+  server = Redmine('http://my-server.com', username='Me', password='seakrit')
+  project = server.projects['parrot']
+  
+  # Find Eric in the user data
+  for u in server.users:
+      if u.firstname == 'Eric' and u.lastname == 'Idle':
+         user = u
+         break
+  else:
+      raise Exception("Didn't find Eric Idle in the user dateabase")
+  
+  # Extend issues in project assigned to user by two weeks
+  for issue in project.issues(assigned_to_id=user.id):
+      if issue.due_date is not None:
+         issue.due_date += relativedelta(weeks=+2)
+         issue.save('Giving Eric more time to complete - he was out ill')
+
