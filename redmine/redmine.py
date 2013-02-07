@@ -360,6 +360,18 @@ class Redmine(Redmine_WS):
 	the version is left off, more features and less security will be enabled for the 
 	best chance of a fully functioning module but the errors for attempting to use 
 	an unsupported function may be less than intuitive. 
+	
+	Depending on the version of Redmine, the following item managers may be available:
+	issues
+	projects
+	
+	Redmine version 1.1 adds:
+	users
+	news
+	time_entries
+	
+	Redmine version 2.2 adds:
+	time_entry_activities
 	'''
 	# Status ID from a default install
 	ISSUE_STATUS_ID_NEW = 1
@@ -368,10 +380,12 @@ class Redmine(Redmine_WS):
 		
 	def _set_version(self, version):
 		'''Set up this object based on the capabilities of the known versions of Redmine'''
+		# Store the version we are evaluating
+		self.version = version or None
 		# To evaluate the version capabilities, assume the best-case if no version is provided
-		self.version = version or 9999.0
+		version_check = version or 9999.0
 
-		if self.version < 1.0:
+		if version_check < 1.0:
 			raise RedmineError('This library will only work with Redmine version 1.0 and higher.')
 		
 		## SECURITY AUGMENTATION		
@@ -385,12 +399,12 @@ class Redmine(Redmine_WS):
 		self.issues = Redmine_Items_Manager(self, Issue)
 		self.projects = Redmine_Items_Manager(self, Project)
 
-		if self.version >= 1.1:
+		if version_check >= 1.1:
 			self.users = Redmine_Items_Manager(self, User)
 			self.news = Redmine_Items_Manager(self, News)
 			self.time_entries = Redmine_Items_Manager(self, Time_Entry)
 		
-		if self.version >= 1.3:
+		if version_check >= 1.3:
 			#issue relations
 			#versions
 			#queries
@@ -400,16 +414,16 @@ class Redmine(Redmine_WS):
 			#issue categories
 			pass
 		
-		if self.version >= 1.4:
+		if version_check >= 1.4:
 			#project memberships
 			#roles
 			pass
 			
-		if self.version >= 2.1:
+		if version_check >= 2.1:
 			#groups
 			pass
 		
-		if self.version >= 2.2:
+		if version_check >= 2.2:
 			self.time_entry_activities = Redmine_Items_Manager(self, Time_Entry_Activity)
 			#wiki pages
 			#enumerations

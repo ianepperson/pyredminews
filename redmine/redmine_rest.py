@@ -25,8 +25,11 @@ class RedmineError(StandardError):
     pass
 
 
+# Base class used for all items returned from Redmine.
+# If an field in an item has an ID but there's no derived class
+# to describe that item, the field will be cast into this class.
 class Redmine_Item(object):
-    '''Base class used for all items returned from Redmine.'''
+    '''A generic representation of an item in Redmine.'''
     # Data hints
     id = None
 
@@ -188,7 +191,7 @@ class Redmine_Item(object):
         
 
     def save(self):
-        '''Save all changes (if any) back to Redmine.'''
+        '''Save all changes on this item (if any) back to Redmine.'''
         self._check_custom_fields()
                 
         if not self._changes:
@@ -262,7 +265,12 @@ class Redmine_Item(object):
         
 
 class Custom_Fields(object):
-    '''Handler to make custom fields easy to deal with.'''
+    '''Custom fields attached to a Redmine item.
+    This behaves somewhat like a dictionary, but the custom field can be accessed by either name or ID.
+    For instance, if your custom field is called "The Client" and Redmine has assigned that field
+    the ID of 4, then you can check the value of that field by using (item).custom_fields[4] or
+    (item).custom_fields['The Client'].  You can assign a new value by simply assigning the value:
+    (item).custom_fields['The Client'] = 'John Cleese' or (item).custom_fields[4] = 'John Cleese' '''
     changed = False
     
     def __init__(self, custom_field_data):
@@ -309,6 +317,87 @@ class Custom_Fields(object):
     
 
 class Redmine_Items_Manager(object):
+    '''Manage items within Redmine.
+    This manager object is used to get many different items from within Redmine.
+    The name used denotes what kind of object is returned.
+    
+    server.issues  ->  issue
+    server.projects  ->  project
+    etc.
+    
+    In some cases, this manager is tied to a returned object. For instance:
+    project.issues
+    In that case, any new issues created with project.issues.new will be created
+    on that project, and any issue queries will be limited to that project.
+    
+    
+    For the following examples, the name MANAGER will be used in place
+    of this manager's name.  It may be server.projects, server.users, project.issues, etc.
+    
+    Create
+    ------
+    Create a new item:
+    MANAGER.new(key='value', key2='value2', ...)
+    
+    Get Item
+    --------
+    Items can be retreived by accessing as if it were a dictionary:
+    MANAGER[ID]
+    
+    Note that projects can be retreived by either their unique identifier or number:
+    >>> proj = server.projects['test-project']
+    >>> proj = server.projects[10]
+    
+    Delete
+    ------
+    Delete an item:
+    MANAGER.delete(ID)
+    WARNING: You should probably never really need this.  Issues should be closed, not deleted.
+    
+    Update
+    ------
+    Update an item:
+    MANAGER.update(ID, key='value', key2='value2', ...)
+    This is handy, but often not needed.  If you've gotten an object
+    for the item you want to change, just change the item's attributes
+    and run the .save() method on that item.
+    
+    Queries
+    -------
+    To run a simple query that returns all items, simply access this manager as an iterator:
+    >>> for item im MANAGER:
+    ...    print item
+        
+    For more complex queries, pass the query parameters to the manager:
+    >>> for item in MANAGER(assigned_to_id=5):
+    ...    print item
+        
+    Issues managers have the following optional filters:
+    * project_id: get issues from the project with the given id, where id is either project id or project identifier
+    * subproject_id: get issues from the subproject with the given id. 
+         You can use (project_id='XXX', subproject_id='!*') to get only the issues of a given project and none of its subprojects.
+    * tracker_id: get issues from the tracker with the given id
+    * status_id: get issues with the given status id only. Possible values: open, closed, * to get open and closed issues, status id
+    * assigned_to_id: get issues which are assigned to the given user id
+    * cf_x: get issues with the given value for custom field with an ID of x. (Custom field must have 'used as a filter' checked.)
+    
+    Any query can be returned as a list or a dictionary as well:
+    MANAGER.query_to_list(<optional filter>)
+    MANAGER.query_to_dict(<optional filter>)
+    The full query is run, and no data is returned until the query is complete which may require multiple calls to Redmine.
+    
+    For instance, to print all the issues associated with a project, you can use:
+    
+    >>> for issue in proj.issues:
+    ...    print issue
+    
+    To exclude issues from all subprojects, you can use:
+    
+    >>> for issue in proj.issues(subproject_id='!*'):
+    ...    print issue
+    
+    
+    '''
     _object = Redmine_Item
     
     _query_path = ''
