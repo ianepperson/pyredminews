@@ -24,9 +24,11 @@ easy_install or pip commands.  easy_install is available by default on OSX, eith
 flavor of Unix you are using, and must be installed on Windows.
 
 ::
+
    > easy_install pyredmine
    
 ::
+
    > pip install pyredmine
 
    
@@ -37,6 +39,7 @@ To get the latest code updates or to get a different version of the library, you
 and run the setup script manually.
 
 ::
+
    > git clone https://github.com/ianepperson/pyredminews.git
    > cd pyredminews
    > python setup.py
@@ -205,6 +208,7 @@ If you happen to know the numeric ID of your project, that can also be used to l
 id 393, then the following will return the same project:
 
 ::
+
     >>> project = demo.projects[393]
     
 Change the Project
@@ -275,6 +279,7 @@ The issues associated for a project can be retreived by iterating over the 'issu
 If you want to exclude issues from any subprojects, you can add query parameters to the iterator:
 
 ::
+
     >>> for issue in project.issues(subproject_id='!*'):
     ...    print issue
     
@@ -331,6 +336,7 @@ If you examine your issue object, you'll see that it contains an author paramete
 However, this user object is incomplete:
 
 ::
+
    >>> issue.author.last_login
    
    >>>
