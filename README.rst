@@ -456,16 +456,6 @@ and almost every trace of it.  So, be careful!  On the demo server, you don't ha
 Different versions of Redmine are inconsistent about when they returns 403 and when they just doesn't work.  You can't rely on the lack of an 
 HTTPError to guarantee success.
 
-Note that there is no good method to assign an issue to a user.  You can assign to the numeric user ID, 
-but there's no interface yet for looking up the ID based on a user name.   You can use the catch-all 
-command updateIssueFromDict to assign the issue to user number 25:
-
-::
-
-   >>> demo.updateIssueFromDict(35178, {'assigned_to_id':'25'} )
-   http://demo.redmine.org/issues/35178.xml
-   ''
-
 Other Objects
 +++++++++++++
 
