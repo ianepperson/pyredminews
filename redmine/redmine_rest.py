@@ -652,7 +652,7 @@ class Redmine_WS(object):
             urldata = '?' + urllib.urlencode( parms )
         
         
-        fullUrl = self._url + '/' + page
+        fullUrl = self._url + page
         
         # register this url to be used with the opener
         # must be registered for each unique path
