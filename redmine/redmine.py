@@ -106,15 +106,20 @@ class Project(Redmine_Item):
 		
 		# Manage issues for this project,
 		# using __dict__ to bypass the changes__dict__
-		self.__dict__['issues'] = Redmine_Items_Manager(redmine, Issue)
 		# Bake this project ID into queries and new issue commands
-		self.issues._query_path = '/projects/%s/issues.json' % self.id
-		self.issues._item_new_path = self.issues._query_path
+		self.__dict__['issues'] = Redmine_Items_Manager(redmine, Issue,
+													query_path='/projects/%s/issues.json' % self.id,
+													item_new_path='/projects/%s/issues.json' % self.id )
 		
 		# Manage time entries for this project
-		self.__dict__['time_entries'] = Redmine_Items_Manager(redmine, Time_Entry)
-		self.time_entries._query_path = '/projects/%s/time_entries.json' % self.id
-		self.time_entries._item_new_path = self.time_entries._query_path
+		self.__dict__['time_entries'] = Redmine_Items_Manager(redmine, Time_Entry,
+													query_path='/projects/%s/time_entries.json' % self.id,
+													item_new_path='/projects/%s/time_entries.json' % self.id)
+
+		
+		# Manage wiki pages if they're available
+		if redmine._wiki_pages:
+			self.__dict__['wiki_pages'] = Redmine_Wiki_Pages_Manager(redmine, self)
 			
 	def __repr__(self):
 		return '<Redmine project #%s "%s">' % (self.id, self.identifier)
@@ -344,6 +349,101 @@ class Time_Entry_Activity(Redmine_Item):
 	_query_path = '/enumerations/time_entry_activities.json'
 
 
+class Wiki_Page(Redmine_Item):
+	'''Object for representing a single Redmine Wiki Page'''
+	# data hints:
+	id = None # there is no real ID. Ugh! We fake it.
+	title = None
+	version = None
+	author = None
+	comments = None
+	created_on = None
+	updated_on = None
+	parent = None
+	
+	_protected_attr = ['id',
+					   'created_on',
+					   'updated_on',
+					   'project',
+					   ]
+
+	_field_type = {
+		'author':'user',
+		'created_on':'datetime',
+		'updated_on':'datetime',
+		#'parent':'wiki_page',  Because of the lack of a numeric ID, this is an incomplete reference
+		}
+
+	# these fields will map from tag to tag_id when saving the time entry.
+	# for instance, redmine needs the issue_id=#, not the issue as given
+	# the logic will attempt to grab issue.id or issue['id'] to set issue_id 
+	_remap_to_id = ['author']
+	
+	# How to communicate this info to/from the server
+	# Path is /projects/<<<foo>>>/wiki/<<<page_name>>>.json.
+	# ID will be passed in as <<<foo>>>/wiki/<<<page_name>>>
+	_item_path = '/projects/%s.json'
+	_item_new_path = '/projects/%s.json'
+	# There is a query at index.json, but we'll have to override a few methods to get it working
+	# because it doesn't contain real IDs, just titles and other meta-data.
+	#_query_container = 'wiki_pages'
+	#_query_path = '/project/<<<foo>>>/wiki.json'
+	
+	# We need a custom update path.  It will be passed the ID (faked, above)
+	# which needs to include the project info in order to be complete.
+	_update_path = '/projects/%s.json'
+
+	def __str__(self):
+		return '<Redmine wiki page %s:%s>' % (self.title, self.version)
+
+	# No numeric ID, don't return an int representation
+	def __int__(self):
+		raise ValueError('Wiki page has no numeric id')
+
+
+# Need a special handler for wiki pages to fake their ID based on the path
+class Redmine_Wiki_Pages_Manager(Redmine_Items_Manager):
+	
+	def __init__(self, redmine, project):
+		# Call the base class constructor
+		Redmine_Items_Manager.__init__(self, redmine, Wiki_Page,
+													item_path='/projects/%s/wiki/%%s.json' % project.id,
+													item_new_path='/projects/%s/wiki/%%s.json' % project.id)
+		self._project = project
+	
+	def _objectify(self, json_data=None, data={}):
+		'''Return an object derived from the given json data.'''
+		if json_data:
+			# Parse the data
+			try:
+				data = json.loads(json_data)
+			except ValueError:
+				# If parsing failed, then raise the string which likely contains an error message instead of data
+				raise RedmineError(json_data)            
+		# Check to see if there is a data wrapper
+		# Some replies will have {'issue':{<data>}} instead of just {<data>}
+		try:
+			data = data[self._item_type]
+		except KeyError:
+			pass
+		
+		# If there's no ID but a source path
+		if ( not data.has_key('id') ) and data.has_key('_source_path'):
+			# use the path between /projects/ and .json as the ID
+			data['id'] = data['_source_path'].partition('/projects/')[2].partition('.json')[0]
+		
+		# Call the base class objectify method
+		return super(Redmine_Wiki_Pages_Manager, self)._objectify(data=data)
+		#return Redmine_Items_Manager._objectify(self, data=data)
+
+	def new(self, page_name, **dict):
+		'''Create a new item with the provided dict information at the given page_name.  Returns the new item.
+		Unfortunately, as of version 2.2 of Redmine, this doesn't seem to function.'''
+		self._item_new_path = '/projects/%s/wiki/%s.json' % (self._project.identifier, page_name)
+		# Call the base class new method
+		return super(Redmine_Wiki_Pages_Manager, self).new(**dict)
+		
+		
 
 class Redmine(Redmine_WS):
 	'''Class to interoperate with a Redmine installation using the REST web services.
@@ -435,11 +535,11 @@ class Redmine(Redmine_WS):
 			#groups
 			pass
 		
+		self._wiki_pages = False
 		if version_check >= 2.2:
 			self.time_entry_activities = Redmine_Items_Manager(self, Time_Entry_Activity)
-			#wiki pages
+			self._wiki_pages = True
 			#enumerations
-			pass
 				
 		
 

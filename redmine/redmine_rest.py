@@ -52,6 +52,12 @@ class Redmine_Item(object):
     _item_path = ''
     _item_new_path = ''
     
+    # Can be used to override the path when saving this item
+    _update_path = None
+    
+    # Will be filled by the get method
+    _source_path = ''
+    
     @classmethod
     def _get_type(cls):
         '''Returns the object type string.
@@ -71,7 +77,7 @@ class Redmine_Item(object):
     def _update_data(self, data={}):
         '''Update the data in this object.'''
         
-        # Store the changes to prevent this update from effecting it
+        # Store the changes to prevent this update from affecting it
         pending_changes = self._changes or {}
         try:
             del self._changes
@@ -97,7 +103,6 @@ class Redmine_Item(object):
                 # Check to see if there's cache data for this item.
                 # Will return an object if it's recognized as one.
                 self.__dict__[key] = self._redmine.check_cache(lookup_key, value)
-        #self.__dict__.update(data)
 
 
         # Set the changes dict to track all changes from here on out
@@ -260,7 +265,7 @@ class Redmine_Item(object):
         if not self.id:
             # Should this be a new item?
             raise RedmineError("Can't save this item, don't have an ID not sure where to put it.")
-        target = self._item_path % self.id
+        target = (self._update_path or self._item_path) % self.id
         payload = json.dumps({self._type:dict})    
         self._redmine.put(target, payload)
 
@@ -429,7 +434,9 @@ class Redmine_Items_Manager(object):
     _item_path = ''
     _item_new_path = ''
     
-    def __init__(self, redmine, item_obj=None):
+    _update_path = ''
+    
+    def __init__(self, redmine, item_obj=None, query_path=None, item_path=None, item_new_path=None):
         self._redmine = redmine
         
         if item_obj:
@@ -439,10 +446,12 @@ class Redmine_Items_Manager(object):
         self._item_type = self._object._get_type()
         self._item_name = self._object.__name__
         
-        self._query_path = self._object._query_path
         self._query_container = self._object._query_container
-        self._item_path = self._object._item_path
-        self._item_new_path = self._object._item_new_path
+        self._query_path = query_path or self._object._query_path
+        self._item_path = item_path or self._object._item_path
+        self._item_new_path = item_new_path or self._object._item_new_path
+        
+        self._update_path = self._object._update_path
     
     def __getitem__(self, key):
         # returned when self[key] is called
@@ -496,8 +505,8 @@ class Redmine_Items_Manager(object):
         except KeyError:
             pass
         
+        # Either returns a new item or updates the item in the cache and returns that
         return self._redmine.check_cache(self._item_type, data, self._object)
-        #return self._object(self._redmine, data=data)
     
     def new(self, **dict):
         '''Create a new item with the provided dict information.  Returns the new item.'''
@@ -512,6 +521,7 @@ class Redmine_Items_Manager(object):
         payload = json.dumps({self._item_type:dict})    
         json_data = self._redmine.post(target, payload)
         data = self._redmine.unwrap_json(self._item_type, json_data)
+        data['_source_path'] = target
         return self._objectify(data=data)
     
     def get(self, id):
@@ -521,13 +531,14 @@ class Redmine_Items_Manager(object):
         target = self._item_path % id
         json_data = self._redmine.get(target)
         data = self._redmine.unwrap_json(self._item_type, json_data)
+        data['_source_path'] = target
         return self._objectify(data=data)
     
     def update(self, id, **dict):
         '''Update a given item with the passed data.'''
         if not self._item_path:
             raise AttributeError('update is not available for %s' % self._item_name)
-        target = self._item_path % id
+        target = (self._update_path or self._item_path) % id
         payload = json.dumps({self._item_type:dict})    
         self._redmine.put(target, payload)
         return None    
@@ -654,6 +665,10 @@ class Redmine_WS(object):
         
         fullUrl = self._url + page
         
+        #debug
+        if self.debug:
+            print fullUrl + urldata
+        
         # register this url to be used with the opener
         # must be registered for each unique path
         try:
@@ -662,10 +677,6 @@ class Redmine_WS(object):
             # No authentication
             pass
             
-        #debug
-        if self.debug:
-            print fullUrl + urldata
-        
         # Set up the request
         if HTTPrequest:
             request = HTTPrequest( fullUrl + urldata )
