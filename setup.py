@@ -486,7 +486,7 @@ Not every item supports every method.  For instance, no current version of Redmi
 setup(
     name = "pyredmine",
     packages = ["redmine"],
-    install_requires = ["dateutil"],
+    install_requires = ["python-dateutil"],
     version = "0.2.4",
     description = "Python Redmine Web Services Library",
     long_description = readme(),
