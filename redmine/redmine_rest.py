@@ -593,13 +593,14 @@ class Redmine_Items_Manager(object):
 class Redmine_WS(object):
     '''Base class to handle all the Redmine lower-level interactions.'''
     
-    def __init__(self, url, key=None, username=None, password=None, debug=False, readonlytest=False, version=0.0 ):
+    def __init__(self, url, key=None, username=None, password=None, debug=False, readonlytest=False, version=0.0, impersonate=None ):
         self._url = url
         self._key = key
         self.debug = debug
         self.readonlytest = readonlytest
         self.item_cache = {}
         self._set_version(version)
+        self.impersonate = impersonate
         if readonlytest:
             print 'Redmine instance running in read only test mode.  No data will be written to the server.'
                     
@@ -687,6 +688,10 @@ class Redmine_WS(object):
         if self._key and self.key_in_header:
             request.add_header('X-Redmine-API-Key', self._key)
             
+        # If impersonation is set, add header
+        if self.impersonate and self.impersonation_supported:
+            request.add_header('X-Redmine-Switch-User', self.impersonate)
+
         # get the data and return XML object
         if payload:
             request.add_header('Content-Type', payload_type)
