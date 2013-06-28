@@ -447,7 +447,7 @@ class Redmine_Wiki_Pages_Manager(Redmine_Items_Manager):
 
 class Redmine(Redmine_WS):
 	'''Class to interoperate with a Redmine installation using the REST web services.
-	instance = Redmine(url, [key=<string>], [username=<string>, password=<string>], [version=<#.#>] )
+	instance = Redmine(url, [key=<string>], [username=<string>, password=<string>], [version=<#.#>], [impersonate=<string>] )
 	
 	url is the base url of the Redmine install ( http://my.server/redmine )
 	
@@ -458,6 +458,9 @@ class Redmine(Redmine_WS):
 	If a key is not defined then a username and password can be used
 	If neither are defined, then only publicly visible items will be retreived
 	
+	If impersonate is set and the logged in user has administrator privileges,
+	the user will be switched.
+
 	When the version parameter is set, only items available in that version of Redmine
 	are enabled.  For instance, version 1.0 only supports issue and project management,
 	but issue 1.1 adds users, news and time entries and more secure key handling.  If
