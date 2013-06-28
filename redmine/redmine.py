@@ -507,6 +507,8 @@ class Redmine(Redmine_WS):
 		if version >= 1.1:
 			self.key_in_header = True  # it puts the key in the header or it gets the hose, but not for 1.0
 		
+		self.impersonation_supported = version_check >= 2.2
+
 		## ITEM MANAGERS
 		self.issues = Redmine_Items_Manager(self, Issue)
 		self.projects = Redmine_Items_Manager(self, Project)
