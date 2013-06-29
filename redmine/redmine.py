@@ -186,6 +186,23 @@ class Issue(Redmine_Item):
 	def __str__(self):
 		return '<Redmine issue #%s, "%s">' % (self.id, self.subject)
 
+        @property
+        def journals(self):
+                """
+                Retrieve journals attribute for this very Issue
+                """
+                try:
+                    target = self._item_path
+                    json_data = self._redmine.get(target % str(self.id), parms = {'include': 'journals'})
+                    data = self._redmine.unwrap_json(None, json_data)
+                    journals = [ Journal(redmine=self._redmine, data=j, type='issue_journal')
+                                 for j in data['issue']['journals']]
+
+                    return journals
+
+                except:
+                    return []
+
 	def save(self, notes=None):
 		'''Save all changes back to Redmine with optional notes.'''
 		# Capture the notes if given
@@ -214,7 +231,32 @@ class Issue(Redmine_Item):
 		'''Save all changes and close this issue'''
 		self.set_status( self._redmine.ISSUE_STATUS_ID_CLOSED, notes=notes )
 
+class Journal(Redmine_Item):
+        """
+        Object for representing a single Redmine issue journal entry.
+        """
+        # data hints:
+        notes = None
+        created_on = None
+        user = None
+        details = None
+        id = None
 
+        _protected_attr = ['id', 'created_on','user']
+
+        _field_type = {
+            'created_on': 'datetime',
+            'user'      : 'user'
+        }
+
+	# How to communicate this info to/from the server
+	_query_container = 'journals'
+	_query_path = ''
+	_item_path = ''
+	_item_new_path = ''
+
+	def __str__(self):
+		return '<Redmine issue_journal #%s>' % (self.id)
 
 class User(Redmine_Item):
 	'''Object for representing a single Redmine user.'''
