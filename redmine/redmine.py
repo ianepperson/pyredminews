@@ -220,6 +220,7 @@ class Issue(Redmine_Item):
 
 
 class Role(object):
+	'''Helper class to represent a project membership role'''
 
 	def __init__(self, id, name, inherited=None):
 		self.id = id
@@ -234,7 +235,7 @@ class Role(object):
 
 
 class Membership(Redmine_Item):
-	'''Object representing a Redmine project membership.'''
+	'''Object representing a Redmine project membership (read-only).'''
 	# data hints:
 	id = None
 	project = None
@@ -257,11 +258,9 @@ class Membership(Redmine_Item):
 	_query_container = 'memberships'
 
 	def __init__(self, redmine, *args, **kw_args):
-		# Override init to also set up sub-queries
 		# Call the base-class init
 		super(Membership, self).__init__(redmine, *args, **kw_args)
 
-		# to manage time_entries for this issue
 		self.roles = [Role(**role) for role in self.roles]
 
 	def __str__(self):
