@@ -116,8 +116,9 @@ class Project(Redmine_Item):
 													query_path='/projects/%s/time_entries.json' % self.id,
 													item_new_path='/projects/%s/time_entries.json' % self.id)
 
-		# Manage membership for this project
-		self.__dict__['memberships'] = Redmine_Items_Manager(redmine, Membership,
+		if redmine.project_memberships:
+			# Manage membership for this project
+			self.__dict__['memberships'] = Redmine_Items_Manager(redmine, Membership,
 													query_path='/projects/%s/memberships.json' % self.id,
 													item_new_path='/projects/%s/memberships.json' % self.id)
 		
@@ -562,6 +563,7 @@ class Redmine(Redmine_WS):
 			self.key_in_header = True  # it puts the key in the header or it gets the hose, but not for 1.0
 		
 		self.impersonation_supported = version_check >= 2.2
+		self.project_memberships = version_check >= 1.4
 
 		## ITEM MANAGERS
 		self.issues = Redmine_Items_Manager(self, Issue)
