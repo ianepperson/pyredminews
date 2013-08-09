@@ -116,6 +116,10 @@ class Project(Redmine_Item):
 													query_path='/projects/%s/time_entries.json' % self.id,
 													item_new_path='/projects/%s/time_entries.json' % self.id)
 
+		# Manage membership for this project
+		self.__dict__['memberships'] = Redmine_Items_Manager(redmine, Membership,
+													query_path='/projects/%s/memberships.json' % self.id,
+													item_new_path='/projects/%s/memberships.json' % self.id)
 		
 		# Manage wiki pages if they're available
 		if redmine._wiki_pages:
@@ -214,6 +218,54 @@ class Issue(Redmine_Item):
 		'''Save all changes and close this issue'''
 		self.set_status( self._redmine.ISSUE_STATUS_ID_CLOSED, notes=notes )
 
+
+class Role(object):
+
+	def __init__(self, id, name, inherited=None):
+		self.id = id
+		self.name = name
+		self.inherited = inherited
+
+	def __str__(self):
+		return '<Role #%s %s>' % (self.id, self.name)
+
+	def __repr__(self):
+		return str(self)
+
+
+class Membership(Redmine_Item):
+	'''Object representing a Redmine project membership.'''
+	# data hints:
+	id = None
+	project = None
+	user = None
+	group = None
+	roles = None
+
+	_protected_attr = ['id',
+					   'identifier',
+					   ]
+
+	_field_type = {
+		'user':'user',
+		}
+
+	_remap_to_id = ['user',
+				    'project',
+		       ]
+
+	_query_container = 'memberships'
+
+	def __init__(self, redmine, *args, **kw_args):
+		# Override init to also set up sub-queries
+		# Call the base-class init
+		super(Membership, self).__init__(redmine, *args, **kw_args)
+
+		# to manage time_entries for this issue
+		self.roles = [Role(**role) for role in self.roles]
+
+	def __str__(self):
+		return '<Redmine project membership #%>' % (self.id,)
 
 
 class User(Redmine_Item):
