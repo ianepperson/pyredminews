@@ -43,3 +43,7 @@ MANIFEST
 README
 
 .DS_Store
+
+.ropeproject*
+
+*.swp
