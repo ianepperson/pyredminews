@@ -120,6 +120,11 @@ class Project(Redmine_Item):
 		# Manage wiki pages if they're available
 		if redmine._wiki_pages:
 			self.__dict__['wiki_pages'] = Redmine_Wiki_Pages_Manager(redmine, self)
+		
+		if redmine._project_memberships:
+			self.__dict__['members'] = Redmine_Items_Manager(redmine, Membership,
+													query_path='/projects/%s/memberships.json' % self.id,
+													item_new_path='/projects/%s/memberships.json' % self.id)
 			
 	def __repr__(self):
 		return '<Redmine project #%s "%s">' % (self.id, self.identifier)
@@ -424,6 +429,35 @@ class Time_Entry_Activity(Redmine_Item):
 	_query_path = '/enumerations/time_entry_activities.json'
 
 
+class Membership(Redmine_Item):
+	'''Object for describing a user's membership to a project.'''
+	# data hints:
+	id = None
+	project = None
+	user = None
+	roles = None
+
+	_protected_attr = ['id', 'project']
+	
+	_field_type = {
+		'user':'user',
+		'project':'project',
+		}
+
+	# How to communicate this info to/from the server
+	_query_container = 'memberships'
+
+	
+class Role(Redmine_Item):
+	'''Object to describe a user's role on a project'''
+	# data hints:
+	id = None
+	name = None
+	inherited = None # This field will not be correct
+
+	_protected_attr = ['id', 'name']
+	
+
 class Wiki_Page(Redmine_Item):
 	'''Object for representing a single Redmine Wiki Page'''
 	# data hints:
@@ -607,8 +641,9 @@ class Redmine(Redmine_WS):
 			#issue categories
 			pass
 		
+		self._project_memberships = False
 		if version_check >= 1.4:
-			#project memberships
+			self._project_memberships = True
 			#roles
 			pass
 			
