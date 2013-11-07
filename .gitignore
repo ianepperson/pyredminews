@@ -47,3 +47,5 @@ README
 .ropeproject*
 
 *.swp
+
+*.swo
