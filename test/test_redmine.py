@@ -117,8 +117,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert redm.time_entry_activities is not None
-        assert redm._project_memberships is True
-        assert redm._wiki_pages is True
+        assert redm.has_project_memberships is True
+        assert redm.has_wiki_pages is True
 
     def test_version_1_0(self):
         '''
@@ -133,8 +133,8 @@ class TestVersionBehavior(TestCase):
         assert not hasattr(redm, 'news')
         assert not hasattr(redm, 'time_entries')
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is False
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is False
+        assert redm.has_wiki_pages is False
 
     def test_version_1_1(self):
         '''
@@ -148,8 +148,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is False
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is False
+        assert redm.has_wiki_pages is False
 
     def test_version_1_2(self):
         '''
@@ -163,8 +163,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is False
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is False
+        assert redm.has_wiki_pages is False
 
     def test_version_1_3(self):
         '''
@@ -178,8 +178,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is False
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is False
+        assert redm.has_wiki_pages is False
 
     def test_version_1_4(self):
         '''
@@ -193,8 +193,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is True
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is True
+        assert redm.has_wiki_pages is False
 
     def test_version_2_1(self):
         '''
@@ -208,8 +208,8 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert not hasattr(redm, 'time_entry_activities')
-        assert redm._project_memberships is True
-        assert redm._wiki_pages is False
+        assert redm.has_project_memberships is True
+        assert redm.has_wiki_pages is False
 
     def test_version_2_2(self):
         '''
@@ -223,5 +223,5 @@ class TestVersionBehavior(TestCase):
         assert redm.users is not None
         assert redm.news is not None
         assert redm.time_entry_activities is not None
-        assert redm._project_memberships is True
-        assert redm._wiki_pages is True
+        assert redm.has_project_memberships is True
+        assert redm.has_wiki_pages is True

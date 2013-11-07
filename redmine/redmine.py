@@ -120,19 +120,12 @@ class Project(Redmine_Item):
             query_path='/projects/{id}/time_entries.json',
             item_new_path='/projects/{id}/time_entries.json')
 
-        if redmine.project_memberships:
-            # Manage membership for this project
-            self._add_item_manager(
-                'memberships', Membership,
-                query_path='/projects/{id}/memberships.json',
-                item_new_path='/projects/{id}/memberships.json')
-
         # Manage wiki pages if they're available
-        if redmine._wiki_pages:
+        if redmine.has_wiki_pages:
             self.__dict__['wiki_pages'] = \
                 Redmine_Wiki_Pages_Manager(redmine, self)
 
-        if redmine._project_memberships:
+        if redmine.has_project_memberships:
             self._add_item_manager(
                 'members', Membership,
                 query_path='/projects/{id}/memberships.json',
@@ -650,6 +643,42 @@ class Redmine(Redmine_WS):
             self._current_user = self.users['current']
         return self._current_user
 
+    _item_managers_by_version = {
+        1.0: {
+            'issues': Issue,
+            'projects': Project,
+            'trackers': Tracker,
+        },
+
+        1.1: {
+            'users': User,
+            'news': News,
+            'time_entries': Time_Entry
+        },
+
+        1.3: {
+            #issue relations
+            #versions
+            #queries
+            #attachments
+            #issue statuses
+            #trackers
+            #issue categories
+        },
+
+        1.4: {
+            #roles
+        },
+
+        2.1: {
+            #groups
+        },
+
+        2.2: {
+            'time_entry_activities': Time_Entry_Activity,
+        },
+    }
+
     def _set_version(self, version):
         '''
         Set up this object based on the capabilities of the
@@ -672,46 +701,50 @@ class Redmine(Redmine_WS):
         # for better security.
         # If no version was provided (0.0) then assume we should
         # set the key with the request.
-        if version >= 1.1:
-            self.key_in_header = True  # it puts the key in the header or
-                                       # it gets the hose, but not for 1.0.
+        self.key_in_header = version >= 1.1
+        # it puts the key in the header or
+        # it gets the hose, but not for 1.0.
 
         self.impersonation_supported = version_check >= 2.2
-        self.project_memberships = version_check >= 1.4
+        self.has_project_memberships = version_check >= 1.4
+        self.has_wiki_pages = version_check >= 2.2
 
         ## ITEM MANAGERS
-        self.issues = Redmine_Items_Manager(self, Issue)
-        self.projects = Redmine_Items_Manager(self, Project)
-        self.trackers = Redmine_Items_Manager(self, Tracker)
+        for manager_version in self._item_managers_by_version:
+            if version_check >= manager_version:
+                managers = self._item_managers_by_version[manager_version]
+                for attribute_name, item in managers.iteritems():
+                    setattr(self, attribute_name,
+                            Redmine_Items_Manager(self, item))
 
-        if version_check >= 1.1:
-            self.users = Redmine_Items_Manager(self, User)
-            self.news = Redmine_Items_Manager(self, News)
-            self.time_entries = Redmine_Items_Manager(self, Time_Entry)
+        # self.issues = Redmine_Items_Manager(self, Issue)
+        # self.projects = Redmine_Items_Manager(self, Project)
+        # self.trackers = Redmine_Items_Manager(self, Tracker)
 
-        if version_check >= 1.3:
-            #issue relations
-            #versions
-            #queries
-            #attachments
-            #issue statuses
-            #trackers
-            #issue categories
-            pass
+        # if version_check >= 1.1:
+        #     self.users = Redmine_Items_Manager(self, User)
+        #     self.news = Redmine_Items_Manager(self, News)
+        #     self.time_entries = Redmine_Items_Manager(self, Time_Entry)
 
-        self._project_memberships = False
-        if version_check >= 1.4:
-            self._project_memberships = True
-            #roles
-            pass
+        # if version_check >= 1.3:
+        #     #issue relations
+        #     #versions
+        #     #queries
+        #     #attachments
+        #     #issue statuses
+        #     #trackers
+        #     #issue categories
+        #     pass
 
-        if version_check >= 2.1:
-            #groups
-            pass
+        # if version_check >= 1.4:
+        #     #roles
+        #     pass
 
-        self._wiki_pages = False
-        if version_check >= 2.2:
-            self.time_entry_activities = \
-                Redmine_Items_Manager(self, Time_Entry_Activity)
-            self._wiki_pages = True
-            #enumerations
+        # if version_check >= 2.1:
+        #     #groups
+        #     pass
+
+        # if version_check >= 2.2:
+        #     self.time_entry_activities = \
+        #         Redmine_Items_Manager(self, Time_Entry_Activity)
+        #     #enumerations
