@@ -710,41 +710,11 @@ class Redmine(Redmine_WS):
         self.has_wiki_pages = version_check >= 2.2
 
         ## ITEM MANAGERS
+        # Step through all the item managers by version
+        # and instatiate and item manager for that item.
         for manager_version in self._item_managers_by_version:
             if version_check >= manager_version:
                 managers = self._item_managers_by_version[manager_version]
                 for attribute_name, item in managers.iteritems():
                     setattr(self, attribute_name,
                             Redmine_Items_Manager(self, item))
-
-        # self.issues = Redmine_Items_Manager(self, Issue)
-        # self.projects = Redmine_Items_Manager(self, Project)
-        # self.trackers = Redmine_Items_Manager(self, Tracker)
-
-        # if version_check >= 1.1:
-        #     self.users = Redmine_Items_Manager(self, User)
-        #     self.news = Redmine_Items_Manager(self, News)
-        #     self.time_entries = Redmine_Items_Manager(self, Time_Entry)
-
-        # if version_check >= 1.3:
-        #     #issue relations
-        #     #versions
-        #     #queries
-        #     #attachments
-        #     #issue statuses
-        #     #trackers
-        #     #issue categories
-        #     pass
-
-        # if version_check >= 1.4:
-        #     #roles
-        #     pass
-
-        # if version_check >= 2.1:
-        #     #groups
-        #     pass
-
-        # if version_check >= 2.2:
-        #     self.time_entry_activities = \
-        #         Redmine_Items_Manager(self, Time_Entry_Activity)
-        #     #enumerations
