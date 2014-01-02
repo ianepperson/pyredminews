@@ -261,7 +261,8 @@ at a time, so the following query might take some time to complete.
 Get All Issues for a Project
 ++++++++++++++++++++++++++++
 
-The issues associated for a project can be retreived by iterating over the 'issues' method in a project.
+The issues associated for a project can be retreived by iterating over the 'issues' method in a project.  default,
+Redmine only returns open issues.
 
 ::
 
@@ -272,7 +273,7 @@ The issues associated for a project can be retreived by iterating over the 'issu
    <Redmine issue #3870, "Demo Feature">
    (truncated)
    
-(You may get an Unicode error if any of the issues has unicode in the subject.  If you do, instead use: print "%s" % issue )
+(You may get a Unicode error if any of the issues has unicode in the subject.  If you do, instead use: print "%s" % issue )
 
 If you want to exclude issues from any subprojects, you can add query parameters to the iterator:
 
@@ -283,10 +284,10 @@ If you want to exclude issues from any subprojects, you can add query parameters
     
 Other parameters are:
 
-* tracker_id: get issues from the tracker with the given id
-* status_id: get issues with the given status id only. Possible values: open, closed, * to get open and closed issues, status id
-* assigned_to_id: get issues which are assigned to the given user id
-* cf_x: get issues with the given value for custom field with an ID of x. (Custom field must have 'used as a filter' checked.)
+* tracker_id: Get issues from the tracker with the given ID.
+* status_id: Get issues with the given status id only. Possible values: numeric status ID, 'open', 'closed', or '*' to get all issues.
+* assigned_to_id: Get issues which are assigned to the given user ID.
+* cf_x: Get issues with the given value for custom field with an ID of x. (Custom field must have 'used as a filter' checked.)
 
 
 Create a New Issue
@@ -370,7 +371,7 @@ Change an Issue's Status
 ++++++++++++++++++++++++
 
 You can move an issue through the workflow as well.  You must set an issue status based on the status ID,
-which is can only be discovered in Redmine version 2.2 and later (but not yet available via this library).
+which can only be discovered in Redmine version 2.2 and later (but not yet available via this library).
 By default, the library uses the status ID for Resolved and Closed from a default Redmine installation, 
 but if you've changed them in the Administration page, you'll have to change these each time as well.
 
@@ -442,9 +443,9 @@ or a numeric project ID, then save it.
 Delete an Issue
 +++++++++++++++
 
-There is also an issue delete command that you should use with care.  In a real production environment, 
+There is also an issue delete command to be used with care.  In a real production environment, 
 you normally would never delete an issue - just leave it closed.  Deleting it will remove history, time worked, 
-and almost every trace of it.  So, be careful!  On the demo server, you don't have permission to delete, so go ahead and try:
+and almost every trace of it.  So, be careful!  On the demo server, you don't have permission to delete, but you can go ahead and try:
 
 ::
 
@@ -453,7 +454,7 @@ and almost every trace of it.  So, be careful!  On the demo server, you don't ha
    urllib2.HTTPError: HTTP Error 403: Forbidden
    >>>
 
-Different versions of Redmine are inconsistent about when they returns 403 and when they just doesn't work.  You can't rely on the lack of an 
+Different versions of Redmine are inconsistent about when they returns 403 and when they just don't work.  You can't rely on the lack of an 
 HTTPError to guarantee success.
 
 Other Objects
