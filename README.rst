@@ -285,7 +285,7 @@ If you want to exclude issues from any subprojects, you can add query parameters
 Other parameters are:
 
 * tracker_id: Get issues from the tracker with the given ID.
-* status_id: Get issues with the given status id only. Possible values: numeric status ID, 'open', 'closed', or '*' to get all issues.
+* status_id: Get issues with the given status. Possible values: numeric status ID, 'open', 'closed', or '*' to get all issues.
 * assigned_to_id: Get issues which are assigned to the given user ID.
 * cf_x: Get issues with the given value for custom field with an ID of x. (Custom field must have 'used as a filter' checked.)
 
