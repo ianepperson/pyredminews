@@ -261,7 +261,7 @@ at a time, so the following query might take some time to complete.
 Get All Issues for a Project
 ++++++++++++++++++++++++++++
 
-The issues associated for a project can be retreived by iterating over the 'issues' method in a project.  default,
+The issues associated for a project can be retreived by iterating over the 'issues' method in a project.  By default,
 Redmine only returns open issues.
 
 ::
