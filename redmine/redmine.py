@@ -601,7 +601,7 @@ class Redmine_Wiki_Pages_Manager(Redmine_Items_Manager):
 
     def __init__(self, redmine, project):
         # Call the base class constructor
-        path = '/projects/%s/wiki/%%s.json' % project.id,
+        path = '/projects/%s/wiki/%%s.json' % project.id
         Redmine_Items_Manager.__init__(self, redmine, Wiki_Page,
                                        item_path=path,
                                        item_new_path=path)

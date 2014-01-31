@@ -42,6 +42,36 @@ HTTP_MOCK_DATA['/projects/1/issues.json'] = \
         ]
     })
 
+# Closed issues in project 1
+HTTP_MOCK_DATA['/projects/1/issues.json?status_id=closed'] = \
+    json.dumps({
+        'issues': [
+            {
+                'id': 2,
+                'subject': 'Closed Issue',
+                'description': 'This is a closed issue',
+                'project': 1,
+            },
+        ]
+    })
+
+# Closed bugs in project 1
+HTTP_MOCK_DATA['/projects/1/issues.json?status_id=closed&tracker_id=1'] = \
+    json.dumps({
+        'issues': [
+            {
+                'id': 2,
+                'subject': 'Closed Issue',
+                'description': 'This is a closed issue',
+                'project': 1,
+            },
+        ]
+    })
+
+# Parameter order not gauranteed, just cover both
+HTTP_MOCK_DATA['/projects/1/issues.json?tracker_id=1&status_id=closed'] = \
+    HTTP_MOCK_DATA['/projects/1/issues.json?status_id=closed&tracker_id=1']
+
 
 def mock_open_raw(page,
                   parms=None,
@@ -51,6 +81,15 @@ def mock_open_raw(page,
     '''
     Pretends to be the URL open method on the Redmine WS class.
     '''
+    if parms is not None:
+        seperator = '?'
+        for key, value in parms.items():
+            if key in ('limit', 'offset'):
+                continue
+            # Add as if it were a parameterized option
+            page = '{}{}{}={}'.format(page, seperator, key, value)
+            seperator = '&'
+
     return StringIO(HTTP_MOCK_DATA[page])
 
 
@@ -99,6 +138,24 @@ class TestProjectsAndIssues(TestCase):
 
         # Verify that the update data from project1 reference came in
         assert issue1.subject == 'Updated'
+
+    def test_get_closed_issues(self):
+        '''
+        Test getting closed issues, and other custom queries
+        '''
+        project1 = self.test_redmine.projects[1]
+
+        looped = False
+        for issue in project1.issues(status_id='closed'):
+            assert issue.id is 2
+            looped = True
+        assert looped, 'Failed to iterate over closed issues.'
+
+        looped = False
+        for issue in project1.issues(status_id='closed', tracker_id=1):
+            assert issue.id is 2
+            looped = True
+        assert looped, 'Failed to iterate over closed bugs.'
 
 
 class TestVersionBehavior(TestCase):
