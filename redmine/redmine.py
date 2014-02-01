@@ -131,6 +131,13 @@ class Project(Redmine_Item):
                 query_path='/projects/{id}/memberships.json',
                 item_new_path='/projects/{id}/memberships.json')
 
+        if redmine.has_project_versions:
+            self._add_item_manager(
+                'versions', Version,
+                query_path='/projects/{id}/versions.json',
+                item_new_path='/projects/{id}/versions.json')
+
+
     def __repr__(self):
         return '<Redmine project #%s "%s">' % (self.id, self.identifier)
 
@@ -195,6 +202,7 @@ class Issue(Redmine_Item):
         'updated_on': 'datetime',
         'start_date': 'date',
         'due_date': 'date',
+        'fixed_version': 'version'
     }
 
     # these fields will map from tag to tag_id when saving the issue.
@@ -204,7 +212,8 @@ class Issue(Redmine_Item):
                     'project',
                     'category',
                     'status',
-                    'parent_issue']
+                    'parent_issue',
+                    'fixed_version']
 
     # How to communicate this info to/from the server
     _query_container = 'issues'
@@ -463,6 +472,41 @@ class Membership(Redmine_Item):
         return '<Redmine project membership #%s>' % (self.id,)
 
 
+class Version(Redmine_Item):
+    '''Object representing a Redmine project version.'''
+    # data hints:
+    id = None
+    project = None
+    name = None
+    description = None
+    status = None
+    due_date = None
+    created_on = None
+    updated_on = None
+
+    _protected_attr = [
+        'id',
+        'identifier',
+    ]
+
+    _field_type = {
+        'due_date': 'date',
+        'created_on': 'datetime',
+        'updated_on': 'datetime',
+    }
+
+    _remap_to_id = [
+        'project',
+    ]
+
+    _query_container = 'versions'
+    _item_path = '/versions/%s.json'
+    _update_path = '/versions/%s.json'
+
+    def __str__(self):
+        return '<Redmine project version #%s>' % (self.id,)
+
+
 class User(Redmine_Item):
     '''Object for representing a single Redmine user.'''
     # data hints:
@@ -473,8 +517,26 @@ class User(Redmine_Item):
     mail = None
     auth_source_id = None
     created_on = None
-    _query_container = 'time_entry_activities'
-    _query_path = '/enumerations/time_entry_activities.json'
+    last_login = None
+
+    _protected_attr = ['id',
+    'created_on',
+    'last_login',
+    ]
+
+    _field_type = {
+    'created_on':'datetime',
+    'last_login':'datetime',
+    }
+
+    # How to communicate this info to/from the server
+    _query_container = 'users'
+    _query_path = '/users.json'
+    _item_path = '/users/%s.json'
+    _item_new_path = '/users.json'
+
+    def __str__(self):
+        return '<Redmine user #%s, "%s %s">' % (self.id, self.firstname, self.lastname)
 
 
 class Wiki_Page(Redmine_Item):
@@ -707,6 +769,7 @@ class Redmine(Redmine_WS):
 
         self.impersonation_supported = version_check >= 2.2
         self.has_project_memberships = version_check >= 1.4
+        self.has_project_versions = version_check >= 1.3
         self.has_wiki_pages = version_check >= 2.2
 
         ## ITEM MANAGERS
